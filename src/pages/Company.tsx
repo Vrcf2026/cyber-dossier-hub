@@ -13,7 +13,7 @@ export default function Company() {
   const navigate = useNavigate();
   const [settings, setSettings] = useState<any>(null);
   const [form, setForm] = useState({
-    name: "", nif: "", address: "", email: "", phone: "", claude_api_key: "",
+    name: "", nif: "", address: "", email: "", phone: "",
   });
   const [loading, setLoading] = useState(false);
 
@@ -32,7 +32,6 @@ export default function Company() {
         address: data.address || "",
         email: data.email || "",
         phone: data.phone || "",
-        claude_api_key: data.claude_api_key || "",
       });
     }
   };
@@ -45,7 +44,6 @@ export default function Company() {
       address: form.address || null,
       email: form.email || null,
       phone: form.phone || null,
-      claude_api_key: form.claude_api_key || null,
     };
 
     if (settings) {
@@ -93,18 +91,16 @@ export default function Company() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Chave API Claude</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          <Label>Chave API (Anthropic)</Label>
-          <Input
-            type="password"
-            value={form.claude_api_key}
-            onChange={(e) => setForm({ ...form, claude_api_key: e.target.value })}
-            placeholder="sk-ant-..."
-          />
-          <p className="text-xs text-muted-foreground">
-            Necessária para utilizar o Assistente IA nos dossiers.
+        <CardHeader><CardTitle>Assistente IA</CardTitle></CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            A chave API da Anthropic já não é gerida aqui — por segurança, vive apenas
+            como secret da Edge Function <code>claude-assistant</code> no Supabase
+            (nunca é enviada ao browser). Para a definir ou rodar, usa:
           </p>
+          <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-x-auto">
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-xxxxx
+          </pre>
         </CardContent>
       </Card>
 
