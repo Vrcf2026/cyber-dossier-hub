@@ -11,6 +11,7 @@ import Clients from "./pages/Clients";
 import ClientDetail from "./pages/ClientDetail";
 import Dossiers from "./pages/Dossiers";
 import DossierEditor from "./pages/DossierEditor";
+import DossierCredentials from "./pages/DossierCredentials";
 import Company from "./pages/Company";
 import PhishingTest from "./pages/PhishingTest";
 import NotFound from "./pages/NotFound";
@@ -46,6 +47,7 @@ const App = () => (
             <Route path="/clientes/:id/phishing" element={<ProtectedRoute><PhishingTest /></ProtectedRoute>} />
             <Route path="/dossiers" element={<ProtectedRoute><Dossiers /></ProtectedRoute>} />
             <Route path="/dossiers/:id" element={<ProtectedRoute><DossierEditor /></ProtectedRoute>} />
+            <Route path="/dossiers/:id/credenciais" element={<ProtectedRoute><DossierCredentials /></ProtectedRoute>} />
             <Route path="/empresa" element={<ProtectedRoute><Company /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
