@@ -95,6 +95,35 @@ export type Database = {
         }
         Relationships: []
       }
+      dossier_credentials: {
+        Row: {
+          dossier_id: string
+          entries: Json
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          dossier_id: string
+          entries?: Json
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          dossier_id?: string
+          entries?: Json
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dossier_credentials_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: true
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dossier_sections: {
         Row: {
           ai_generated_content: string | null
