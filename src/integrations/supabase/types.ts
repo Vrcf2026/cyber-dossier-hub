@@ -95,6 +95,35 @@ export type Database = {
         }
         Relationships: []
       }
+      dossier_credentials: {
+        Row: {
+          dossier_id: string
+          entries: Json
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          dossier_id: string
+          entries?: Json
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          dossier_id?: string
+          entries?: Json
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dossier_credentials_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: true
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dossier_sections: {
         Row: {
           ai_generated_content: string | null
@@ -180,6 +209,128 @@ export type Database = {
           },
         ]
       }
+      phishing_campaigns: {
+        Row: {
+          bait_type: string | null
+          body_html: string
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          dossier_id: string | null
+          from_name: string | null
+          id: string
+          subject: string
+          theme: string | null
+        }
+        Insert: {
+          bait_type?: string | null
+          body_html: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          dossier_id?: string | null
+          from_name?: string | null
+          id?: string
+          subject: string
+          theme?: string | null
+        }
+        Update: {
+          bait_type?: string | null
+          body_html?: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          dossier_id?: string | null
+          from_name?: string | null
+          id?: string
+          subject?: string
+          theme?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phishing_campaigns_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "phishing_campaigns_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      phishing_clicks: {
+        Row: {
+          clicked_at: string
+          id: string
+          target_id: string
+        }
+        Insert: {
+          clicked_at?: string
+          id?: string
+          target_id: string
+        }
+        Update: {
+          clicked_at?: string
+          id?: string
+          target_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phishing_clicks_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "phishing_campaign_results"
+            referencedColumns: ["target_id"]
+          },
+          {
+            foreignKeyName: "phishing_clicks_target_id_fkey"
+            columns: ["target_id"]
+            isOneToOne: false
+            referencedRelation: "phishing_targets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      phishing_targets: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          email: string
+          id: string
+          sent_at: string | null
+          token: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          email: string
+          id?: string
+          sent_at?: string | null
+          token?: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          sent_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phishing_targets_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "phishing_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -230,7 +381,26 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      phishing_campaign_results: {
+        Row: {
+          attempts: number | null
+          campaign_id: string | null
+          email: string | null
+          first_attempt_at: string | null
+          last_attempt_at: string | null
+          sent_at: string | null
+          target_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "phishing_targets_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "phishing_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       has_role: {
