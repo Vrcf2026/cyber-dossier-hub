@@ -12,6 +12,7 @@ import ClientDetail from "./pages/ClientDetail";
 import Dossiers from "./pages/Dossiers";
 import DossierEditor from "./pages/DossierEditor";
 import Company from "./pages/Company";
+import PhishingTest from "./pages/PhishingTest";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/clientes" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
             <Route path="/clientes/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
+            <Route path="/clientes/:id/phishing" element={<ProtectedRoute><PhishingTest /></ProtectedRoute>} />
             <Route path="/dossiers" element={<ProtectedRoute><Dossiers /></ProtectedRoute>} />
             <Route path="/dossiers/:id" element={<ProtectedRoute><DossierEditor /></ProtectedRoute>} />
             <Route path="/empresa" element={<ProtectedRoute><Company /></ProtectedRoute>} />

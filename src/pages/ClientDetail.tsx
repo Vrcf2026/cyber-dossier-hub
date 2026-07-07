@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ShieldAlert } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" }> = {
   rascunho: { label: "Rascunho", variant: "secondary" },
@@ -35,8 +35,11 @@ export default function ClientDetail() {
       </Button>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{client.name}</CardTitle>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/clientes/${id}/phishing`)}>
+            <ShieldAlert className="h-4 w-4 mr-2" /> Teste de Phishing
+          </Button>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-4 text-sm">
           {client.nif && <div><span className="text-muted-foreground">NIF:</span> {client.nif}</div>}
