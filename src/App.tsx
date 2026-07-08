@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -33,28 +34,30 @@ function AuthRoute() {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/auth" element={<AuthRoute />} />
-            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/clientes" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
-            <Route path="/clientes/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
-            <Route path="/clientes/:id/phishing" element={<ProtectedRoute><PhishingTest /></ProtectedRoute>} />
-            <Route path="/dossiers" element={<ProtectedRoute><Dossiers /></ProtectedRoute>} />
-            <Route path="/dossiers/:id" element={<ProtectedRoute><DossierEditor /></ProtectedRoute>} />
-            <Route path="/dossiers/:id/credenciais" element={<ProtectedRoute><DossierCredentials /></ProtectedRoute>} />
-            <Route path="/empresa" element={<ProtectedRoute><Company /></ProtectedRoute>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
+              <Route path="/auth" element={<AuthRoute />} />
+              <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/clientes" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
+              <Route path="/clientes/:id" element={<ProtectedRoute><ClientDetail /></ProtectedRoute>} />
+              <Route path="/clientes/:id/phishing" element={<ProtectedRoute><PhishingTest /></ProtectedRoute>} />
+              <Route path="/dossiers" element={<ProtectedRoute><Dossiers /></ProtectedRoute>} />
+              <Route path="/dossiers/:id" element={<ProtectedRoute><DossierEditor /></ProtectedRoute>} />
+              <Route path="/dossiers/:id/credenciais" element={<ProtectedRoute><DossierCredentials /></ProtectedRoute>} />
+              <Route path="/empresa" element={<ProtectedRoute><Company /></ProtectedRoute>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;

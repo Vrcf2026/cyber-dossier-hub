@@ -5,8 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Lock, Sparkles } from "lucide-react";
+import { ArrowLeft, Lock, Sparkles, Download } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { getSectionDefinition } from "@/lib/dossierSections";
 
@@ -27,6 +30,7 @@ export default function DossierEditor() {
   const [contentDraft, setContentDraft] = useState("");
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -41,6 +45,31 @@ export default function DossierEditor() {
     }
     const { data: s } = await supabase.from("dossier_sections").select("*").eq("dossier_id", id!).order("section_number");
     setSections(s ?? []);
+  };
+
+  const handleExport = async (variant: "cliente" | "tecnico") => {
+    setExporting(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dossier-export?dossierId=${id}&variant=${variant}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) throw new Error("Falha ao gerar documento");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Dossier_${variant === "tecnico" ? "Tecnico" : "Cliente"}_${client?.name ?? ""}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Documento gerado.");
+    } catch {
+      toast.error("Erro ao gerar o documento.");
+    } finally {
+      setExporting(false);
+    }
   };
 
   const updateStatus = async (status: string) => {
@@ -174,6 +203,17 @@ export default function DossierEditor() {
           <p className="text-muted-foreground">{client?.name}</p>
         </div>
         <div className="flex items-center gap-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={exporting}>
+                <Download className="h-4 w-4 mr-2" /> {exporting ? "A gerar..." : "Exportar"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => handleExport("cliente")}>Versão Cliente</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("tecnico")}>Versão Técnica</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Select value={dossier.status} onValueChange={updateStatus}>
             <SelectTrigger className="w-44">
               <SelectValue />

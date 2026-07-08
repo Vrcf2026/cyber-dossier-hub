@@ -127,6 +127,7 @@ export type Database = {
       dossier_sections: {
         Row: {
           ai_generated_content: string | null
+          client_visible: boolean
           created_at: string
           data: Json
           dossier_id: string
@@ -138,6 +139,7 @@ export type Database = {
         }
         Insert: {
           ai_generated_content?: string | null
+          client_visible?: boolean
           created_at?: string
           data?: Json
           dossier_id: string
@@ -149,6 +151,7 @@ export type Database = {
         }
         Update: {
           ai_generated_content?: string | null
+          client_visible?: boolean
           created_at?: string
           data?: Json
           dossier_id?: string
