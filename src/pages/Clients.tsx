@@ -10,8 +10,10 @@ import { toast } from "sonner";
 import { Plus, Search, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+import { Skeleton } from "@/components/ui/skeleton";
+
 const sectors = [
-  "Tecnologia", "Saúde", "Finanças", "Educação", "Indústria",
+  "Tecnologia", "Saúde", "Clínica/Odontologia", "Finanças", "Educação", "Indústria",
   "Comércio", "Serviços", "Administração Pública", "Outro",
 ];
 
@@ -33,6 +35,7 @@ const emptyClient = {
 
 export default function Clients() {
   const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -42,8 +45,10 @@ export default function Clients() {
   useEffect(() => { fetchClients(); }, []);
 
   const fetchClients = async () => {
+    setLoading(true);
     const { data } = await supabase.from("clients").select("*").order("name");
     setClients((data as Client[]) ?? []);
+    setLoading(false);
   };
 
   const handleSave = async () => {
@@ -172,7 +177,9 @@ export default function Clients() {
       </div>
 
       <div className="grid gap-3">
-        {filtered.length === 0 ? (
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)
+        ) : filtered.length === 0 ? (
           <p className="text-muted-foreground">Nenhum cliente encontrado.</p>
         ) : (
           filtered.map((client) => (

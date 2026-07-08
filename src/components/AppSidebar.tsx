@@ -1,7 +1,8 @@
-import { LayoutDashboard, Users, FolderOpen, Building2, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, FolderOpen, Building2, LogOut, Sun, Moon } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "next-themes";
 import {
   Sidebar,
   SidebarContent,
@@ -27,6 +28,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const { isAdmin, signOut, user } = useAuth();
+  const { theme, setTheme } = useTheme();
 
   const isActive = (path: string) =>
     path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
@@ -79,6 +81,15 @@ export function AppSidebar() {
             {user?.email}
           </p>
         )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+        >
+          {theme === "dark" ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
+          {!collapsed && (theme === "dark" ? "Tema claro" : "Tema escuro")}
+        </Button>
         <Button
           variant="ghost"
           size="sm"

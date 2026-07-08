@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Plus, Trash2, Lock } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Lock, Download } from "lucide-react";
 import { toast } from "sonner";
 
 interface CredentialEntry {
@@ -23,6 +23,7 @@ export default function DossierCredentials() {
   const [entries, setEntries] = useState<CredentialEntry[]>([]);
   const [recordId, setRecordId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -38,6 +39,31 @@ export default function DossierCredentials() {
         }
       });
   }, [id]);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dossier-export?dossierId=${id}&variant=credenciais`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) throw new Error("Falha ao gerar documento");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Folha_Credenciais.docx";
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Documento gerado.");
+    } catch {
+      toast.error("Erro ao gerar o documento.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const addEntry = () => setEntries([...entries, { ...emptyEntry }]);
   const removeEntry = (index: number) => setEntries(entries.filter((_, i) => i !== index));
@@ -99,9 +125,12 @@ export default function DossierCredentials() {
             <Plus className="h-4 w-4 mr-2" /> Adicionar linha
           </Button>
 
-          <div>
+          <div className="flex gap-2">
             <Button onClick={handleSave} disabled={saving}>
               {saving ? "A guardar..." : "Guardar"}
+            </Button>
+            <Button variant="outline" onClick={handleExport} disabled={exporting}>
+              <Download className="h-4 w-4 mr-2" /> {exporting ? "A gerar..." : "Exportar (.docx)"}
             </Button>
           </div>
         </CardContent>

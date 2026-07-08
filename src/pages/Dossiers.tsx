@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" }> = {
   rascunho: { label: "Rascunho", variant: "secondary" },
@@ -22,6 +23,7 @@ export default function Dossiers() {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [dossiers, setDossiers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [clients, setClients] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [filterClient, setFilterClient] = useState("all");
@@ -36,8 +38,10 @@ export default function Dossiers() {
   }, []);
 
   const fetchDossiers = async () => {
+    setLoading(true);
     const { data } = await supabase.from("dossiers").select("*, clients(name)").order("created_at", { ascending: false });
     setDossiers(data ?? []);
+    setLoading(false);
   };
 
   const handleCreate = async () => {
@@ -48,22 +52,8 @@ export default function Dossiers() {
       created_by: user?.id,
     }).select().single();
     if (error) { toast.error("Erro ao criar dossier."); return; }
-
-    // Create 16 sections
-    const sectionNames = [
-      "Identificação do Cliente", "Inventário de Hardware", "Inventário de Software",
-      "Topologia de Rede", "Políticas de Segurança", "Gestão de Acessos",
-      "Avaliação de Riscos", "Plano de Backup", "Disaster Recovery Plan",
-      "Resposta a Incidentes", "Conformidade e Regulação", "Proteção de Dados",
-      "Formação e Sensibilização", "Monitorização e Logs", "Melhoria Contínua",
-      "Declaração de Conformidade",
-    ];
-    const sections = sectionNames.map((name, i) => ({
-      dossier_id: data.id,
-      section_number: i + 1,
-      section_name: name,
-    }));
-    await supabase.from("dossier_sections").insert(sections);
+    // As 15 secções corretas são criadas automaticamente pelo trigger
+    // seed_dossier_sections() da base de dados — não inserir aqui.
 
     toast.success("Dossier criado.");
     setOpen(false);
@@ -147,7 +137,9 @@ export default function Dossiers() {
       </div>
 
       <div className="grid gap-3">
-        {filtered.length === 0 ? (
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)
+        ) : filtered.length === 0 ? (
           <p className="text-muted-foreground">Nenhum dossier encontrado.</p>
         ) : (
           filtered.map((d) => {
