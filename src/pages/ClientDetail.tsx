@@ -122,7 +122,19 @@ export default function ClientDetail() {
           {client.sector && <div><span className="text-muted-foreground">Setor:</span> {client.sector}</div>}
           {client.email && <div><span className="text-muted-foreground">Email:</span> {client.email}</div>}
           {client.phone && <div><span className="text-muted-foreground">Telefone:</span> {client.phone}</div>}
-          {client.address && <div className="col-span-2"><span className="text-muted-foreground">Morada:</span> {client.address}</div>}
+          {client.address && (
+            <div className="col-span-2">
+              <span className="text-muted-foreground">Morada:</span>{" "}
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(client.address)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline underline-offset-2 hover:opacity-80"
+              >
+                {client.address}
+              </a>
+            </div>
+          )}
           {client.contact_person && <div><span className="text-muted-foreground">Contacto:</span> {client.contact_person}</div>}
           {client.num_employees && <div><span className="text-muted-foreground">Colaboradores:</span> {client.num_employees}</div>}
         </CardContent>
