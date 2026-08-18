@@ -171,6 +171,53 @@ export type Database = {
           },
         ]
       }
+      dossier_sections_history: {
+        Row: {
+          ai_generated_content: string | null
+          changed_at: string
+          changed_by: string | null
+          data: Json | null
+          dossier_id: string
+          id: string
+          is_completed: boolean | null
+          section_id: string
+          section_name: string
+          section_number: number
+        }
+        Insert: {
+          ai_generated_content?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          data?: Json | null
+          dossier_id: string
+          id?: string
+          is_completed?: boolean | null
+          section_id: string
+          section_name: string
+          section_number: number
+        }
+        Update: {
+          ai_generated_content?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          data?: Json | null
+          dossier_id?: string
+          id?: string
+          is_completed?: boolean | null
+          section_id?: string
+          section_name?: string
+          section_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dossier_sections_history_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "dossier_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dossiers: {
         Row: {
           client_id: string
