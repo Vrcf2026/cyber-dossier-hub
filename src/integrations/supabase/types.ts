@@ -23,7 +23,7 @@ export type Database = {
           id: string
           name: string
           nif: string | null
-          num_employees: number | null
+          num_employees: string | null
           phone: string | null
           sector: string | null
           updated_at: string
@@ -36,7 +36,7 @@ export type Database = {
           id?: string
           name: string
           nif?: string | null
-          num_employees?: number | null
+          num_employees?: string | null
           phone?: string | null
           sector?: string | null
           updated_at?: string
@@ -49,7 +49,7 @@ export type Database = {
           id?: string
           name?: string
           nif?: string | null
-          num_employees?: number | null
+          num_employees?: string | null
           phone?: string | null
           sector?: string | null
           updated_at?: string

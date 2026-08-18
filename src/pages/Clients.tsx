@@ -26,11 +26,13 @@ type Client = {
   email: string | null;
   phone: string | null;
   contact_person: string | null;
-  num_employees: number | null;
+  num_employees: string | null;
 };
 
+const employeeRanges = ["0-10", "11-29", "30-60", "+60"];
+
 const emptyClient = {
-  name: "", nif: "", sector: "", address: "", email: "", phone: "", contact_person: "", num_employees: 0,
+  name: "", nif: "", sector: "", address: "", email: "", phone: "", contact_person: "", num_employees: "",
 };
 
 export default function Clients() {
@@ -89,7 +91,7 @@ export default function Clients() {
       email: client.email || "",
       phone: client.phone || "",
       contact_person: client.contact_person || "",
-      num_employees: client.num_employees || 0,
+      num_employees: client.num_employees || "",
     });
     setOpen(true);
   };
@@ -139,7 +141,12 @@ export default function Clients() {
               </div>
               <div className="space-y-2">
                 <Label>Nº Colaboradores</Label>
-                <Input type="number" value={form.num_employees} onChange={(e) => setForm({ ...form, num_employees: parseInt(e.target.value) || 0 })} />
+                <Select value={form.num_employees} onValueChange={(v) => setForm({ ...form, num_employees: v })}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                  <SelectContent>
+                    {employeeRanges.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="col-span-2 space-y-2">
                 <Label>Morada</Label>

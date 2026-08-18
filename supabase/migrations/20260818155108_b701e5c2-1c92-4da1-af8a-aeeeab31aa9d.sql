@@ -1,0 +1,1 @@
+ALTER TABLE public.clients ALTER COLUMN num_employees TYPE TEXT USING CASE WHEN num_employees IS NULL THEN NULL WHEN num_employees <= 10 THEN '0-10' WHEN num_employees <= 29 THEN '11-29' WHEN num_employees <= 60 THEN '30-60' ELSE '+60' END;
