@@ -43,21 +43,53 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { dossierId, sectionId, sectionName, notes, clientName } = await req.json();
-    if (!sectionId || !notes) {
-      return new Response(JSON.stringify({ error: "sectionId e notes são obrigatórios." }), {
+    const { dossierId, sectionId, sectionName, notes, clientName, attachments } = await req.json();
+    const attachmentList: { name: string; mediaType: string; base64: string }[] = Array.isArray(attachments) ? attachments : [];
+    if (!sectionId || (!notes?.trim() && attachmentList.length === 0)) {
+      return new Response(JSON.stringify({ error: "sectionId e (notes ou attachments) são obrigatórios." }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // Ficheiros de texto simples (CSV/TXT/JSON/HTML — ex: export do Action1) vão
+    // inline no prompt como texto, já descodificados. PDFs e imagens vão como
+    // blocos multimodais para a Claude "ver" diretamente (tabelas, screenshots,
+    // fotos do bastidor, etc.) — não precisamos de parser nenhum por ferramenta.
+    const TEXTUAL_TYPES = ["text/csv", "text/plain", "application/json", "text/html", "text/markdown"];
+    const inlineTextParts: string[] = [];
+    const contentBlocks: any[] = [];
+
+    for (const att of attachmentList) {
+      const isTextual = TEXTUAL_TYPES.includes(att.mediaType) || /\.(csv|txt|json|html?|md)$/i.test(att.name);
+      if (isTextual) {
+        try {
+          const decoded = atob(att.base64);
+          const text = decoded.length > 20000 ? decoded.slice(0, 20000) + "\n[...ficheiro truncado...]" : decoded;
+          inlineTextParts.push(`--- Ficheiro anexado: ${att.name} ---\n${text}`);
+        } catch {
+          inlineTextParts.push(`--- Ficheiro anexado: ${att.name} (não foi possível ler como texto) ---`);
+        }
+      } else if (att.mediaType === "application/pdf") {
+        contentBlocks.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: att.base64 } });
+      } else if (att.mediaType.startsWith("image/")) {
+        contentBlocks.push({ type: "image", source: { type: "base64", media_type: att.mediaType, data: att.base64 } });
+      }
+    }
+
     const prompt = `Estás a preparar a secção "${sectionName}" de um dossier técnico de cibersegurança para a empresa "${clientName || "o cliente"}" (micro/pequena empresa — a linguagem deve ser clara, sem jargão desnecessário, e o âmbito deve ficar limitado ao que é tecnicamente responsabilidade de um consultor de TI/MSP, nunca a decisões legais, de seguros, ou de gestão que sejam do cliente).
 
-Aqui estão as notas soltas do consultor, tal como as escreveu no terreno (podem estar desorganizadas, em fragmentos, com abreviaturas):
+Notas soltas do consultor, tal como as escreveu no terreno (podem estar desorganizadas, em fragmentos, com abreviaturas, ou até vazias se a informação vier só dos ficheiros anexados):
 """
-${notes}
+${notes || "(sem notas escritas — usa apenas os ficheiros anexados)"}
 """
+${inlineTextParts.length > 0 ? `\nConteúdo de ficheiros anexados (ex: exports de ferramentas RMM como Action1, listas de equipamento, etc.) — usa isto como fonte de dados factuais, extrai o que for relevante para esta secção:\n${inlineTextParts.join("\n\n")}` : ""}
+${contentBlocks.length > 0 ? "\nTambém foram anexados PDF(s) e/ou imagem(ns) — olha para o conteúdo deles (podem ser listas de equipamento, screenshots de consolas de gestão, fotos de bastidores/rede, relatórios) e usa o que for relevante." : ""}
 
-Tarefa: reescreve isto como o texto final e estruturado desta secção do dossier, em português europeu, pronto a incluir no documento. Usa parágrafos curtos e, sempre que fizer sentido o conteúdo, tabelas em markdown. Não inventes dados que não estejam nas notas — se faltar informação relevante, assinala com "[A CONFIRMAR: ...]" em vez de inventar. Não escrevas preâmbulo nem comentários sobre a tarefa, apenas o conteúdo final da secção.`;
+Tarefa: escreve o texto final e estruturado desta secção do dossier, em português europeu, pronto a incluir no documento. Usa parágrafos curtos e, sempre que fizer sentido o conteúdo (ex: listas de equipamento), tabelas em markdown. Não inventes dados que não estejam nas notas/ficheiros — se faltar informação relevante, assinala com "[A CONFIRMAR: ...]" em vez de inventar. Não escrevas preâmbulo nem comentários sobre a tarefa, apenas o conteúdo final da secção.`;
+
+    const userContent = contentBlocks.length > 0
+      ? [...contentBlocks, { type: "text", text: prompt }]
+      : prompt;
 
     const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -68,8 +100,8 @@ Tarefa: reescreve isto como o texto final e estruturado desta secção do dossie
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 2000,
-        messages: [{ role: "user", content: prompt }],
+        max_tokens: 3000,
+        messages: [{ role: "user", content: userContent }],
       }),
     });
 

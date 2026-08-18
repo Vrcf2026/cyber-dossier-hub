@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Lock, Sparkles, Download } from "lucide-react";
+import { ArrowLeft, Lock, Sparkles, Download, History, RotateCcw } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -31,6 +31,10 @@ export default function DossierEditor() {
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [attachments, setAttachments] = useState<{ name: string; mediaType: string; base64: string }[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -81,13 +85,72 @@ export default function DossierEditor() {
     setActiveSectionId(section.id);
     setNotesDraft(section.data?.notes ?? "");
     setContentDraft(section.ai_generated_content ?? "");
+    setShowHistory(false);
+    setHistory([]);
+    setAttachments([]);
+  };
+
+  const MAX_TOTAL_ATTACHMENT_BYTES = 15 * 1024 * 1024; // 15MB, para não rebentar a função
+
+  const handleFilesSelected = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const readAsBase64 = (file: File) =>
+      new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+    const currentTotal = attachments.reduce((sum, a) => sum + a.base64.length * 0.75, 0);
+    let runningTotal = currentTotal;
+    const newOnes: { name: string; mediaType: string; base64: string }[] = [];
+
+    for (const file of Array.from(files)) {
+      if (runningTotal + file.size > MAX_TOTAL_ATTACHMENT_BYTES) {
+        toast.error(`"${file.name}" ignorado — limite de ~15MB por secção atingido.`);
+        continue;
+      }
+      try {
+        const base64 = await readAsBase64(file);
+        newOnes.push({ name: file.name, mediaType: file.type || "application/octet-stream", base64 });
+        runningTotal += file.size;
+      } catch {
+        toast.error(`Não consegui ler "${file.name}".`);
+      }
+    }
+    setAttachments((prev) => [...prev, ...newOnes]);
+  };
+
+  const removeAttachment = (name: string) => {
+    setAttachments((prev) => prev.filter((a) => a.name !== name));
+  };
+
+  const toggleHistory = async () => {
+    if (showHistory) { setShowHistory(false); return; }
+    setShowHistory(true);
+    setLoadingHistory(true);
+    const { data } = await supabase
+      .from("dossier_sections_history")
+      .select("*")
+      .eq("section_id", activeSectionId!)
+      .order("changed_at", { ascending: false });
+    setHistory(data ?? []);
+    setLoadingHistory(false);
+  };
+
+  const restoreVersion = (entry: any) => {
+    setNotesDraft(entry.data?.notes ?? "");
+    setContentDraft(entry.ai_generated_content ?? "");
+    setShowHistory(false);
+    toast.info("Versão anterior carregada no editor — revê e clica em Guardar para aplicar.");
   };
 
   const handleGenerate = async () => {
     const section = sections.find((s) => s.id === activeSectionId);
     if (!section) return;
-    if (!notesDraft.trim()) {
-      toast.error("Cola aqui as tuas notas soltas primeiro.");
+    if (!notesDraft.trim() && attachments.length === 0) {
+      toast.error("Escreve notas ou anexa pelo menos um ficheiro primeiro.");
       return;
     }
     setGenerating(true);
@@ -98,6 +161,7 @@ export default function DossierEditor() {
         sectionName: section.section_name,
         notes: notesDraft,
         clientName: client?.name,
+        attachments,
       },
     });
     setGenerating(false);
@@ -143,17 +207,46 @@ export default function DossierEditor() {
           <ArrowLeft className="h-4 w-4 mr-2" /> Voltar às secções
         </Button>
 
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold text-foreground">
-              {activeSection.section_number}. {activeSection.section_name}
-            </h2>
-            {activeDef && !activeDef.clientVisible && (
-              <Badge variant="secondary" className="gap-1"><Lock className="h-3 w-3" /> Interno</Badge>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold text-foreground">
+                {activeSection.section_number}. {activeSection.section_name}
+              </h2>
+              {activeDef && !activeDef.clientVisible && (
+                <Badge variant="secondary" className="gap-1"><Lock className="h-3 w-3" /> Interno</Badge>
+              )}
+            </div>
+            {activeDef && <p className="text-sm text-muted-foreground mt-1">{activeDef.helpText}</p>}
+          </div>
+          <Button variant="ghost" size="sm" onClick={toggleHistory}>
+            <History className="h-4 w-4 mr-2" /> Histórico
+          </Button>
+        </div>
+
+        {showHistory && (
+          <div className="border rounded-lg p-3 bg-muted/30 space-y-2 max-h-64 overflow-y-auto">
+            {loadingHistory ? (
+              <p className="text-sm text-muted-foreground">A carregar...</p>
+            ) : history.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Ainda sem alterações anteriores registadas nesta secção.</p>
+            ) : (
+              history.map((entry) => (
+                <div key={entry.id} className="flex items-center justify-between text-sm border-b last:border-0 pb-2 last:pb-0">
+                  <div>
+                    <span className="font-medium">{new Date(entry.changed_at).toLocaleString("pt-PT")}</span>
+                    <p className="text-muted-foreground line-clamp-1">
+                      {(entry.ai_generated_content || entry.data?.notes || "(vazio)").slice(0, 80)}
+                    </p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => restoreVersion(entry)}>
+                    <RotateCcw className="h-3 w-3 mr-1" /> Restaurar
+                  </Button>
+                </div>
+              ))
             )}
           </div>
-          {activeDef && <p className="text-sm text-muted-foreground mt-1">{activeDef.helpText}</p>}
-        </div>
+        )}
 
         <div className="space-y-2">
           <label className="text-sm font-medium">As tuas notas soltas</label>
@@ -163,6 +256,28 @@ export default function DossierEditor() {
             value={notesDraft}
             onChange={(e) => setNotesDraft(e.target.value)}
           />
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium">Ou anexa ficheiros (CSV/Excel exportado de RMM, PDF, foto/screenshot...)</label>
+            <input
+              type="file"
+              multiple
+              accept=".csv,.txt,.pdf,.png,.jpg,.jpeg,.json,.html"
+              onChange={(e) => handleFilesSelected(e.target.files)}
+              className="block w-full text-sm text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border file:bg-background file:text-sm"
+            />
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {attachments.map((a) => (
+                  <Badge key={a.name} variant="secondary" className="gap-1">
+                    {a.name}
+                    <button onClick={() => removeAttachment(a.name)} className="ml-1 text-muted-foreground hover:text-foreground">×</button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
           <Button onClick={handleGenerate} disabled={generating} variant="secondary" size="sm">
             <Sparkles className="h-4 w-4 mr-2" />
             {generating ? "A estruturar..." : "Estruturar com IA"}
