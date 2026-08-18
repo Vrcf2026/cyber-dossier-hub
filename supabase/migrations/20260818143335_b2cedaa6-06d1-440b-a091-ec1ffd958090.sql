@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.log_dossier_section_history() FROM PUBLIC, anon, authenticated;
