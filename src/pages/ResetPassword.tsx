@@ -36,7 +36,7 @@ export default function ResetPassword() {
     setLoading(false);
     if (error) {
       toast.error(error.message);
-ических      return;
+      return;
     }
     toast.success("Palavra-passe alterada com sucesso!");
     navigate("/");
