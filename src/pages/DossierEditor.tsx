@@ -5,7 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Lock, Sparkles, Download, History, RotateCcw } from "lucide-react";
+import { ArrowLeft, Lock, Sparkles, Download, History, RotateCcw, ShieldCheck, AlertTriangle, AlertCircle, RefreshCw, MessageSquare } from "lucide-react";
+
+interface AuditSection { number: number; name: string; status: "ok"|"incomplete"|"empty"; issues: string[] }
+interface AuditResult { sections: AuditSection[]; cross_issues: string[]; critical_missing: string[]; overall_score: number }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -35,6 +38,9 @@ export default function DossierEditor() {
   const [showHistory, setShowHistory] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [attachments, setAttachments] = useState<{ name: string; mediaType: string; base64: string }[]>([]);
+  const [audit, setAudit] = useState<AuditResult | null>(null);
+  const [auditing, setAuditing] = useState(false);
+  const [showAudit, setShowAudit] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -137,6 +143,28 @@ export default function DossierEditor() {
       .order("changed_at", { ascending: false });
     setHistory(data ?? []);
     setLoadingHistory(false);
+  };
+
+  const runAudit = async () => {
+    setAuditing(true);
+    setShowAudit(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dossier-audit`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ dossierId: id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setAudit(data);
+    } catch (e: any) {
+      toast.error("Erro ao analisar o dossier.");
+      setShowAudit(false);
+    } finally {
+      setAuditing(false);
+    }
   };
 
   const restoreVersion = (entry: any) => {
@@ -306,6 +334,9 @@ export default function DossierEditor() {
     );
   }
 
+  // Mapa de status de auditoria por número de secção (para semáforos)
+  const auditMap = Object.fromEntries((audit?.sections ?? []).map(s => [s.number, s]));
+
   return (
     <div className="space-y-6">
       <Button variant="ghost" onClick={() => navigate("/dossiers")}>
@@ -317,7 +348,15 @@ export default function DossierEditor() {
           <h2 className="text-2xl font-bold text-foreground">{dossier.title}</h2>
           <p className="text-muted-foreground">{client?.name}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <Button variant="outline" size="sm" onClick={() => navigate(`/dossiers/${id}/intake`)}>
+            <MessageSquare className="h-4 w-4 mr-2" />
+            {dossier.intake_completed ? "Continuar intake" : "Iniciar intake IA"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={runAudit} disabled={auditing}>
+            <ShieldCheck className="h-4 w-4 mr-2" />
+            {auditing ? "A analisar..." : "Analisar lacunas"}
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" disabled={exporting}>
@@ -330,7 +369,7 @@ export default function DossierEditor() {
             </DropdownMenuContent>
           </DropdownMenu>
           <Select value={dossier.status} onValueChange={updateStatus}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -339,9 +378,98 @@ export default function DossierEditor() {
               <SelectItem value="concluido">Concluído</SelectItem>
             </SelectContent>
           </Select>
-          <Badge variant={cfg.variant}>{cfg.label}</Badge>
         </div>
       </div>
+
+      {/* Aviso: intake não feito */}
+      {!dossier.intake_completed && (
+        <div className="flex items-start gap-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+          <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Intake ainda não realizado</p>
+            <p className="text-sm text-amber-700 dark:text-amber-300 mt-0.5">
+              Usa o botão "Iniciar intake IA" para descrever a empresa — a IA preenche todas as secções automaticamente com base no que forneceres.
+              Podes também preencher secções manualmente abaixo.
+            </p>
+          </div>
+          <Button size="sm" variant="outline" className="shrink-0 border-amber-400 text-amber-700"
+            onClick={() => navigate(`/dossiers/${id}/intake`)}>
+            Iniciar
+          </Button>
+        </div>
+      )}
+
+      {/* Painel de auditoria */}
+      {showAudit && (
+        <div className="border rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 bg-muted/50 border-b">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              <span className="font-medium text-sm">Análise de lacunas</span>
+              {audit && <Badge variant="secondary">{audit.overall_score}% completo</Badge>}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={runAudit} disabled={auditing}>
+                <RefreshCw className={`h-3 w-3 ${auditing ? "animate-spin" : ""}`} />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowAudit(false)}>×</Button>
+            </div>
+          </div>
+
+          {auditing ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              A analisar todas as secções e cruzar informação...
+            </div>
+          ) : audit ? (
+            <div className="p-4 space-y-4 max-h-80 overflow-y-auto">
+              {/* Problemas críticos */}
+              {audit.critical_missing?.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-destructive uppercase tracking-wide">Falta crítico para NIS2</p>
+                  {audit.critical_missing.map((m, i) => (
+                    <div key={i} className="flex items-start gap-2 text-sm">
+                      <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+                      <span>{m}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Inconsistências entre secções */}
+              {audit.cross_issues?.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">Inconsistências entre secções</p>
+                  {audit.cross_issues.map((c, i) => (
+                    <div key={i} className="flex items-start gap-2 text-sm">
+                      <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                      <span>{c}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Por secção */}
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Por secção</p>
+                {audit.sections?.filter(s => s.status !== "ok" || s.issues?.length > 0).map(s => (
+                  <div key={s.number} className="text-sm">
+                    <div className="flex items-center gap-2">
+                      {s.status === "ok" && <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />}
+                      {s.status === "incomplete" && <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />}
+                      {s.status === "empty" && <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />}
+                      <span className="font-medium">{s.number}. {s.name}</span>
+                    </div>
+                    {s.issues?.map((issue, i) => (
+                      <p key={i} className="text-muted-foreground pl-4 text-xs mt-0.5">→ {issue}</p>
+                    ))}
+                  </div>
+                ))}
+                {audit.sections?.every(s => s.status === "ok") && (
+                  <p className="text-sm text-green-600">Todas as secções estão completas e coerentes.</p>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
 
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
@@ -351,27 +479,37 @@ export default function DossierEditor() {
         <Progress value={progress} className="h-2" />
       </div>
 
-      <div className="grid gap-3">
+      <div className="grid gap-2">
         {sections.map((section) => {
           const def = getSectionDefinition(section.section_number);
+          const auditS = auditMap[section.section_number];
           return (
             <div
               key={section.id}
               onClick={() => openSection(section)}
               className={`p-4 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors flex items-center justify-between ${
-                section.is_completed ? "border-success/30 bg-success/5" : ""
+                section.is_completed ? "border-green-500/30 bg-green-500/5" : ""
               }`}
             >
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-mono text-muted-foreground w-6">{section.section_number}.</span>
-                <span className="font-medium">{section.section_name}</span>
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-sm font-mono text-muted-foreground w-6 shrink-0">{section.section_number}.</span>
+                <span className="font-medium truncate">{section.section_name}</span>
                 {def && !def.clientVisible && (
-                  <Badge variant="secondary" className="gap-1 text-xs"><Lock className="h-3 w-3" /> Interno</Badge>
+                  <Badge variant="secondary" className="gap-1 text-xs shrink-0"><Lock className="h-3 w-3" /> Interno</Badge>
                 )}
               </div>
-              {section.is_completed && (
-                <Badge variant="outline" className="text-success border-success/30">Preenchido</Badge>
-              )}
+              <div className="flex items-center gap-2 shrink-0 ml-2">
+                {/* Semáforo do audit */}
+                {auditS && (
+                  <span title={auditS.issues?.join(" | ")} className={`w-2.5 h-2.5 rounded-full ${
+                    auditS.status === "ok" ? "bg-green-500" :
+                    auditS.status === "incomplete" ? "bg-amber-400" : "bg-red-400"
+                  }`} />
+                )}
+                {section.is_completed && (
+                  <Badge variant="outline" className="text-green-600 border-green-500/30 text-xs">✓ Concluída</Badge>
+                )}
+              </div>
             </div>
           );
         })}
