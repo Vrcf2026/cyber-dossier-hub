@@ -124,6 +124,82 @@ export type Database = {
           },
         ]
       }
+      dossier_facts: {
+        Row: {
+          category: string
+          created_at: string
+          data: Json
+          dossier_id: string
+          id: string
+          key: string
+          label: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          data?: Json
+          dossier_id: string
+          id?: string
+          key: string
+          label: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          data?: Json
+          dossier_id?: string
+          id?: string
+          key?: string
+          label?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dossier_facts_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dossier_intake_messages: {
+        Row: {
+          content: string
+          created_at: string
+          dossier_id: string
+          id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          dossier_id: string
+          id?: string
+          role: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          dossier_id?: string
+          id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dossier_intake_messages_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dossier_sections: {
         Row: {
           ai_generated_content: string | null
@@ -224,6 +300,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          intake_completed: boolean
           progress: number
           status: string
           title: string
@@ -234,6 +311,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          intake_completed?: boolean
           progress?: number
           status?: string
           title: string
@@ -244,6 +322,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          intake_completed?: boolean
           progress?: number
           status?: string
           title?: string
