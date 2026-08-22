@@ -95,6 +95,35 @@ export type Database = {
         }
         Relationships: []
       }
+      dossier_access: {
+        Row: {
+          created_at: string
+          dossier_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dossier_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dossier_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dossier_access_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dossier_credentials: {
         Row: {
           dossier_id: string
@@ -462,6 +491,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          client_id: string | null
           created_at: string
           email: string | null
           full_name: string | null
@@ -471,6 +501,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          client_id?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -480,6 +511,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          client_id?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -488,7 +520,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -532,6 +572,10 @@ export type Database = {
       }
     }
     Functions: {
+      can_access_dossier: {
+        Args: { _dossier_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -540,6 +584,7 @@ export type Database = {
         Returns: boolean
       }
       is_approved: { Args: { _user_id: string }; Returns: boolean }
+      is_staff: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user" | "tecnico" | "cliente"
