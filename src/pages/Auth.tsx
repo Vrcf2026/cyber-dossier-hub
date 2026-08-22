@@ -110,23 +110,17 @@ export default function Auth() {
               {loading ? "A processar..." : isLogin ? "Iniciar sessão" : "Criar conta"}
             </Button>
           </form>
-          <div className="mt-4 text-center">
-            {isLogin && (
-              <button
-                type="button"
-                onClick={handleForgotPassword}
-                className="block w-full text-sm text-muted-foreground hover:text-primary underline mb-2"
-              >
-                Esqueci-me da palavra-passe
-              </button>
-            )}
+          <div className="mt-4 text-center space-y-2">
             <button
               type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-muted-foreground hover:text-primary underline"
+              onClick={handleForgotPassword}
+              className="block w-full text-sm text-muted-foreground hover:text-primary underline"
             >
-              {isLogin ? "Não tem conta? Registe-se" : "Já tem conta? Inicie sessão"}
+              Esqueci-me da palavra-passe
             </button>
+            <p className="text-xs text-muted-foreground">
+              As contas são criadas pelo administrador. Se não tem acesso, contacte-o.
+            </p>
           </div>
         </CardContent>
       </Card>
