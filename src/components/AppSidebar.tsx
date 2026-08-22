@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FolderOpen, Building2, LogOut, Sun, Moon } from "lucide-react";
+import { LayoutDashboard, Users, FolderOpen, Building2, LogOut, Sun, Moon, ShieldCheck, FileText } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,21 +17,28 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 
-const mainItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
+const staffItems = [
+  { title: "Dashboard", url: "/", icon: LayoutDashboard, end: true },
   { title: "Clientes", url: "/clientes", icon: Users },
   { title: "Dossiers", url: "/dossiers", icon: FolderOpen },
+];
+
+const adminItems = [
+  { title: "Empresa", url: "/empresa", icon: Building2 },
+  { title: "Utilizadores", url: "/utilizadores", icon: ShieldCheck },
+];
+
+const clientItems = [
+  { title: "Os meus relatórios", url: "/portal", icon: FileText },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const location = useLocation();
-  const { isAdmin, signOut, user } = useAuth();
+  const { isAdmin, isCliente, signOut, user } = useAuth();
   const { theme, setTheme } = useTheme();
 
-  const isActive = (path: string) =>
-    path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
+  const items = isCliente ? clientItems : [...staffItems, ...(isAdmin ? adminItems : [])];
 
   return (
     <Sidebar collapsible="icon">
@@ -42,12 +49,12 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainItems.map((item) => (
+              {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
-                      end={item.url === "/"}
+                      end={"end" in item ? (item as any).end : undefined}
                       className="hover:bg-sidebar-accent/50"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                     >
@@ -57,20 +64,6 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-              {isAdmin && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <NavLink
-                      to="/empresa"
-                      className="hover:bg-sidebar-accent/50"
-                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-                    >
-                      <Building2 className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>Empresa</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
