@@ -163,6 +163,28 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // Só quem tem acesso ao dossier o pode exportar
+    const { data: canAccess } = await supabaseClient.rpc("can_access_dossier", {
+      _user_id: userData.user.id,
+      _dossier_id: dossierId,
+    });
+    if (!canAccess) {
+      return new Response(JSON.stringify({ error: "Sem acesso a este dossier." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Versões técnica e de credenciais só para administradores
+    const { data: isAdminCaller } = await supabaseClient.rpc("has_role", {
+      _user_id: userData.user.id,
+      _role: "admin",
+    });
+    if ((variant === "tecnico" || variant === "credenciais") && !isAdminCaller) {
+      return new Response(JSON.stringify({ error: "Sem permissões para esta versão." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { data: dossier } = await supabaseClient
       .from("dossiers").select("*, clients(*)").eq("id", dossierId).single();
     if (!dossier) {
