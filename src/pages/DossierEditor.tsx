@@ -102,6 +102,12 @@ export default function DossierEditor() {
     setShowHistory(false);
     setHistory([]);
     setAttachments([]);
+    logAudit("dossier_section_view", {
+      dossierId: id,
+      entityType: "dossier_section",
+      entityId: section.id,
+      details: { section_name: `${section.section_number}. ${section.section_name}` },
+    });
   };
 
   const MAX_TOTAL_ATTACHMENT_BYTES = 15 * 1024 * 1024; // 15MB, para não rebentar a função
