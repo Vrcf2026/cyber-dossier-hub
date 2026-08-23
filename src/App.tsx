@@ -101,6 +101,7 @@ const App = () => (
               <Route path="/dossiers/:id/credenciais" element={<AdminRoute><DossierCredentials /></AdminRoute>} />
               <Route path="/empresa" element={<AdminRoute><Company /></AdminRoute>} />
               <Route path="/utilizadores" element={<AdminRoute><Users /></AdminRoute>} />
+              <Route path="/auditoria" element={<AdminRoute><AuditLog /></AdminRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
