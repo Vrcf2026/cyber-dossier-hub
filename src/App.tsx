@@ -19,6 +19,7 @@ import Company from "./pages/Company";
 import PhishingTest from "./pages/PhishingTest";
 import Users from "./pages/Users";
 import Portal from "./pages/Portal";
+import AuditLog from "./pages/AuditLog";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -100,6 +101,7 @@ const App = () => (
               <Route path="/dossiers/:id/credenciais" element={<AdminRoute><DossierCredentials /></AdminRoute>} />
               <Route path="/empresa" element={<AdminRoute><Company /></AdminRoute>} />
               <Route path="/utilizadores" element={<AdminRoute><Users /></AdminRoute>} />
+              <Route path="/auditoria" element={<AdminRoute><AuditLog /></AdminRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>

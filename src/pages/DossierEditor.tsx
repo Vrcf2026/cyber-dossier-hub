@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { getSectionDefinition } from "@/lib/dossierSections";
+import { logAudit } from "@/lib/audit";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" }> = {
   rascunho: { label: "Rascunho", variant: "secondary" },
@@ -45,6 +46,7 @@ export default function DossierEditor() {
   useEffect(() => {
     if (!id) return;
     fetchDossier();
+    logAudit("dossier_view", { dossierId: id, entityId: id });
   }, [id]);
 
   const fetchDossier = async () => {
@@ -75,6 +77,11 @@ export default function DossierEditor() {
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Documento gerado.");
+      logAudit("dossier_export", {
+        dossierId: id,
+        entityId: id,
+        details: { variant, dossier_title: dossier?.title, client_name: client?.name },
+      });
     } catch {
       toast.error("Erro ao gerar o documento.");
     } finally {
@@ -85,6 +92,7 @@ export default function DossierEditor() {
   const updateStatus = async (status: string) => {
     await supabase.from("dossiers").update({ status }).eq("id", id!);
     setDossier({ ...dossier, status });
+    logAudit("dossier_status_update", { dossierId: id, entityId: id, details: { status } });
   };
 
   const openSection = (section: any) => {
@@ -94,6 +102,12 @@ export default function DossierEditor() {
     setShowHistory(false);
     setHistory([]);
     setAttachments([]);
+    logAudit("dossier_section_view", {
+      dossierId: id,
+      entityType: "dossier_section",
+      entityId: section.id,
+      details: { section_name: `${section.section_number}. ${section.section_name}` },
+    });
   };
 
   const MAX_TOTAL_ATTACHMENT_BYTES = 15 * 1024 * 1024; // 15MB, para não rebentar a função
