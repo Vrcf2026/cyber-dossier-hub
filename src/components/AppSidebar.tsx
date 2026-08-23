@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FolderOpen, Building2, LogOut, Sun, Moon, ShieldCheck, FileText } from "lucide-react";
+import { LayoutDashboard, Users, FolderOpen, Building2, LogOut, Sun, Moon, ShieldCheck, FileText, ScrollText } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
