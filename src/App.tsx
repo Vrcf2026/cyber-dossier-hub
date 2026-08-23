@@ -19,6 +19,7 @@ import Company from "./pages/Company";
 import PhishingTest from "./pages/PhishingTest";
 import Users from "./pages/Users";
 import Portal from "./pages/Portal";
+import AuditLog from "./pages/AuditLog";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
