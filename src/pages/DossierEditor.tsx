@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { getSectionDefinition } from "@/lib/dossierSections";
+import { logAudit } from "@/lib/audit";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "outline" }> = {
   rascunho: { label: "Rascunho", variant: "secondary" },
