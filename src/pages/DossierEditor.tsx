@@ -77,6 +77,11 @@ export default function DossierEditor() {
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Documento gerado.");
+      logAudit("dossier_export", {
+        dossierId: id,
+        entityId: id,
+        details: { variant, dossier_title: dossier?.title, client_name: client?.name },
+      });
     } catch {
       toast.error("Erro ao gerar o documento.");
     } finally {
@@ -87,6 +92,7 @@ export default function DossierEditor() {
   const updateStatus = async (status: string) => {
     await supabase.from("dossiers").update({ status }).eq("id", id!);
     setDossier({ ...dossier, status });
+    logAudit("dossier_status_update", { dossierId: id, entityId: id, details: { status } });
   };
 
   const openSection = (section: any) => {
