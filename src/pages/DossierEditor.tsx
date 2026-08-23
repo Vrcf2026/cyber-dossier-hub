@@ -46,6 +46,7 @@ export default function DossierEditor() {
   useEffect(() => {
     if (!id) return;
     fetchDossier();
+    logAudit("dossier_view", { dossierId: id, entityId: id });
   }, [id]);
 
   const fetchDossier = async () => {
