@@ -26,6 +26,7 @@ const staffItems = [
 const adminItems = [
   { title: "Empresa", url: "/empresa", icon: Building2 },
   { title: "Utilizadores", url: "/utilizadores", icon: ShieldCheck },
+  { title: "Auditoria", url: "/auditoria", icon: ScrollText },
 ];
 
 const clientItems = [
