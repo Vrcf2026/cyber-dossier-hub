@@ -135,6 +135,55 @@ export default function AuditLog() {
         </Button>
       </div>
 
+      {settings && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Settings2 className="h-4 w-4" /> Retenção e limpeza
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="space-y-1">
+                <Label>Guardar registos durante</Label>
+                <Select
+                  value={String(settings.retention_months)}
+                  onValueChange={(v) => saveSettings({ retention_months: Number(v) })}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[3, 6, 12, 24, 36, 60].map((m) => (
+                      <SelectItem key={m} value={String(m)}>
+                        {m} meses
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2 pb-2">
+                <Switch
+                  id="auto-purge"
+                  checked={settings.auto_purge_enabled}
+                  onCheckedChange={(v) => saveSettings({ auto_purge_enabled: v })}
+                />
+                <Label htmlFor="auto-purge">Limpeza automática diária</Label>
+              </div>
+              <Button variant="outline" size="sm" onClick={purgeNow} disabled={purging || savingSettings}>
+                <Trash2 className="h-4 w-4 mr-2" /> Limpar agora
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Registos com mais de {settings.retention_months} meses são apagados automaticamente todas as noites.
+              {settings.last_purge_at
+                ? ` Última limpeza: ${fmt(settings.last_purge_at)} (${settings.last_purge_deleted ?? 0} registo(s) apagado(s)).`
+                : " Ainda não foi executada nenhuma limpeza."}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex flex-wrap gap-2">
         <Input
           placeholder="Procurar por utilizador, ação ou detalhe..."
