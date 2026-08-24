@@ -35,6 +35,45 @@ export default function AuditLog() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [group, setGroup] = useState("todos");
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [purging, setPurging] = useState(false);
+
+  const loadSettings = async () => {
+    const { data } = await supabase
+      .from("audit_settings")
+      .select("id, retention_months, auto_purge_enabled, last_purge_at, last_purge_deleted")
+      .order("created_at")
+      .limit(1)
+      .maybeSingle();
+    if (data) setSettings(data as Settings);
+  };
+
+  const saveSettings = async (patch: Partial<Settings>) => {
+    if (!settings) return;
+    const next = { ...settings, ...patch };
+    setSettings(next);
+    setSavingSettings(true);
+    const { error } = await supabase
+      .from("audit_settings")
+      .update({ retention_months: next.retention_months, auto_purge_enabled: next.auto_purge_enabled })
+      .eq("id", settings.id);
+    setSavingSettings(false);
+    if (error) toast({ title: "Não foi possível guardar", description: error.message, variant: "destructive" });
+    else toast({ title: "Configurações guardadas" });
+  };
+
+  const purgeNow = async () => {
+    setPurging(true);
+    const { data, error } = await supabase.rpc("purge_audit_logs", { _force: true });
+    setPurging(false);
+    if (error) {
+      toast({ title: "Falha na limpeza", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: `Limpeza concluída`, description: `${data ?? 0} registo(s) apagado(s).` });
+    await Promise.all([load(), loadSettings()]);
+  };
 
   const load = async () => {
     setLoading(true);
