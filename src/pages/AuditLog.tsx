@@ -5,8 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { auditActionLabels } from "@/lib/audit";
-import { RefreshCw, ScrollText, Eye, Pencil, Download } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { RefreshCw, ScrollText, Eye, Pencil, Download, Trash2, Settings2 } from "lucide-react";
 
 type Log = {
   id: string;
@@ -16,6 +19,14 @@ type Log = {
   dossier_id: string | null;
   details: Record<string, unknown> | null;
   created_at: string;
+};
+
+type Settings = {
+  id: string;
+  retention_months: number;
+  auto_purge_enabled: boolean;
+  last_purge_at: string | null;
+  last_purge_deleted: number | null;
 };
 
 const groupOf = (action: string) =>
@@ -32,6 +43,45 @@ export default function AuditLog() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [group, setGroup] = useState("todos");
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [purging, setPurging] = useState(false);
+
+  const loadSettings = async () => {
+    const { data } = await supabase
+      .from("audit_settings")
+      .select("id, retention_months, auto_purge_enabled, last_purge_at, last_purge_deleted")
+      .order("created_at")
+      .limit(1)
+      .maybeSingle();
+    if (data) setSettings(data as Settings);
+  };
+
+  const saveSettings = async (patch: Partial<Settings>) => {
+    if (!settings) return;
+    const next = { ...settings, ...patch };
+    setSettings(next);
+    setSavingSettings(true);
+    const { error } = await supabase
+      .from("audit_settings")
+      .update({ retention_months: next.retention_months, auto_purge_enabled: next.auto_purge_enabled })
+      .eq("id", settings.id);
+    setSavingSettings(false);
+    if (error) toast({ title: "Não foi possível guardar", description: error.message, variant: "destructive" });
+    else toast({ title: "Configurações guardadas" });
+  };
+
+  const purgeNow = async () => {
+    setPurging(true);
+    const { data, error } = await supabase.rpc("purge_audit_logs", { _force: true });
+    setPurging(false);
+    if (error) {
+      toast({ title: "Falha na limpeza", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: `Limpeza concluída`, description: `${data ?? 0} registo(s) apagado(s).` });
+    await Promise.all([load(), loadSettings()]);
+  };
 
   const load = async () => {
     setLoading(true);
@@ -46,6 +96,7 @@ export default function AuditLog() {
 
   useEffect(() => {
     load();
+    loadSettings();
   }, []);
 
   const filtered = useMemo(
@@ -83,6 +134,55 @@ export default function AuditLog() {
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} /> Atualizar
         </Button>
       </div>
+
+      {settings && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Settings2 className="h-4 w-4" /> Retenção e limpeza
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="space-y-1">
+                <Label>Guardar registos durante</Label>
+                <Select
+                  value={String(settings.retention_months)}
+                  onValueChange={(v) => saveSettings({ retention_months: Number(v) })}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[3, 6, 12, 24, 36, 60].map((m) => (
+                      <SelectItem key={m} value={String(m)}>
+                        {m} meses
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2 pb-2">
+                <Switch
+                  id="auto-purge"
+                  checked={settings.auto_purge_enabled}
+                  onCheckedChange={(v) => saveSettings({ auto_purge_enabled: v })}
+                />
+                <Label htmlFor="auto-purge">Limpeza automática diária</Label>
+              </div>
+              <Button variant="outline" size="sm" onClick={purgeNow} disabled={purging || savingSettings}>
+                <Trash2 className="h-4 w-4 mr-2" /> Limpar agora
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Registos com mais de {settings.retention_months} meses são apagados automaticamente todas as noites.
+              {settings.last_purge_at
+                ? ` Última limpeza: ${fmt(settings.last_purge_at)} (${settings.last_purge_deleted ?? 0} registo(s) apagado(s)).`
+                : " Ainda não foi executada nenhuma limpeza."}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex flex-wrap gap-2">
         <Input
