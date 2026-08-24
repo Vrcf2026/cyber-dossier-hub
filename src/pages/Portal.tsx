@@ -43,6 +43,7 @@ export default function Portal() {
       .eq("dossier_id", selected)
       .order("section_number")
       .then(({ data }) => setSections(data ?? []));
+    logAudit("portal_view", { dossierId: selected, entityId: selected });
   }, [selected]);
 
   const handleDownload = async () => {
