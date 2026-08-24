@@ -58,6 +58,36 @@ export type Database = {
           },
         ]
       }
+      audit_settings: {
+        Row: {
+          auto_purge_enabled: boolean
+          created_at: string
+          id: string
+          last_purge_at: string | null
+          last_purge_deleted: number | null
+          retention_months: number
+          updated_at: string
+        }
+        Insert: {
+          auto_purge_enabled?: boolean
+          created_at?: string
+          id?: string
+          last_purge_at?: string | null
+          last_purge_deleted?: number | null
+          retention_months?: number
+          updated_at?: string
+        }
+        Update: {
+          auto_purge_enabled?: boolean
+          created_at?: string
+          id?: string
+          last_purge_at?: string | null
+          last_purge_deleted?: number | null
+          retention_months?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           address: string | null
@@ -629,6 +659,7 @@ export type Database = {
       }
       is_approved: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      purge_audit_logs: { Args: { _force?: boolean }; Returns: number }
     }
     Enums: {
       app_role: "admin" | "user" | "tecnico" | "cliente"
