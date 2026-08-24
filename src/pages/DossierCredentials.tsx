@@ -39,6 +39,7 @@ export default function DossierCredentials() {
           setEntries((data.entries as unknown as CredentialEntry[]) ?? []);
         }
       });
+    logAudit("credentials_view", { dossierId: id, entityType: "dossier_credentials", entityId: id });
   }, [id]);
 
   const handleExport = async () => {
