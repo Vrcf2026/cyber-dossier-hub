@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Download, FileText } from "lucide-react";
+import { logAudit } from "@/lib/audit";
 
 type Dossier = { id: string; title: string; status: string; updated_at: string };
 type Section = {
