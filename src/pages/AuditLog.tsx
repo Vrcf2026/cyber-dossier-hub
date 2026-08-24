@@ -5,8 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { auditActionLabels } from "@/lib/audit";
-import { RefreshCw, ScrollText, Eye, Pencil, Download } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
+import { RefreshCw, ScrollText, Eye, Pencil, Download, Trash2, Settings2 } from "lucide-react";
 
 type Log = {
   id: string;
