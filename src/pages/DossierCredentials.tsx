@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Plus, Trash2, Lock, Download } from "lucide-react";
 import { toast } from "sonner";
+import { logAudit } from "@/lib/audit";
 
 interface CredentialEntry {
   sistema: string;
