@@ -96,6 +96,7 @@ export default function AuditLog() {
 
   useEffect(() => {
     load();
+    loadSettings();
   }, []);
 
   const filtered = useMemo(
