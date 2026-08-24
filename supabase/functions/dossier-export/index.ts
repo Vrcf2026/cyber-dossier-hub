@@ -274,6 +274,17 @@ Deno.serve(async (req: Request) => {
 
     const buffer = await Packer.toBuffer(doc);
 
+    // Registo de auditoria da exportação (fonte fiável, do lado do servidor)
+    await supabaseClient.from("audit_logs").insert({
+      user_id: userData.user.id,
+      user_email: userData.user.email ?? null,
+      action: "dossier_export",
+      entity_type: "dossier",
+      entity_id: dossierId,
+      dossier_id: dossierId,
+      details: { variant, dossier_title: (dossier as any).title, client_name: client?.name ?? null, source: "edge" },
+    });
+
     return new Response(buffer, {
       status: 200,
       headers: {
