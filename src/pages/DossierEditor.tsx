@@ -239,6 +239,15 @@ export default function DossierEditor() {
       .eq("id", section.id);
     setSaving(false);
     toast.success(markCompleted ? "Secção marcada como concluída." : "Guardado.");
+    logAudit("dossier_section_update", {
+      dossierId: id,
+      entityType: "dossier_section",
+      entityId: section.id,
+      details: {
+        section_name: `${section.section_number}. ${section.section_name}`,
+        marcada_concluida: markCompleted,
+      },
+    });
     setActiveSectionId(null);
     fetchDossier();
   };
