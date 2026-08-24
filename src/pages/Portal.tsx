@@ -63,6 +63,11 @@ export default function Portal() {
       a.download = "Dossier.docx";
       a.click();
       URL.revokeObjectURL(url);
+      logAudit("portal_export", {
+        dossierId: selected,
+        entityId: selected,
+        details: { variant: "cliente", dossier_title: dossiers.find((d) => d.id === selected)?.title },
+      });
     } catch {
       toast.error("Não foi possível descarregar o relatório.");
     } finally {
