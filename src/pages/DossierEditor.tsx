@@ -77,11 +77,6 @@ export default function DossierEditor() {
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Documento gerado.");
-      logAudit("dossier_export", {
-        dossierId: id,
-        entityId: id,
-        details: { variant, dossier_title: dossier?.title, client_name: client?.name },
-      });
     } catch {
       toast.error("Erro ao gerar o documento.");
     } finally {

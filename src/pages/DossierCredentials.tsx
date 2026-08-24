@@ -60,11 +60,6 @@ export default function DossierCredentials() {
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Documento gerado.");
-      logAudit("dossier_export", {
-        dossierId: id,
-        entityId: id,
-        details: { variant: "credenciais" },
-      });
     } catch {
       toast.error("Erro ao gerar o documento.");
     } finally {
