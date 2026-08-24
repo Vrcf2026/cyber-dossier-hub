@@ -21,6 +21,14 @@ type Log = {
   created_at: string;
 };
 
+type Settings = {
+  id: string;
+  retention_months: number;
+  auto_purge_enabled: boolean;
+  last_purge_at: string | null;
+  last_purge_deleted: number | null;
+};
+
 const groupOf = (action: string) =>
   action.includes("export") ? "exportacao" : action.includes("update") || action.includes("generate") ? "alteracao" : "acesso";
 
