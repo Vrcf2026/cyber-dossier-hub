@@ -213,6 +213,15 @@ export default function DossierEditor() {
     }
     setContentDraft(data.content);
     toast.success("Texto gerado — revê e ajusta antes de guardar.");
+    logAudit("dossier_section_generate", {
+      dossierId: id,
+      entityType: "dossier_section",
+      entityId: section.id,
+      details: {
+        section_name: `${section.section_number}. ${section.section_name}`,
+        attachments: attachments.map((a) => a.name),
+      },
+    });
     fetchDossier();
   };
 
