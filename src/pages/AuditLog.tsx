@@ -295,7 +295,66 @@ export default function AuditLog() {
             <SelectItem value="exportacao">Exportações</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={userFilter} onValueChange={setUserFilter}>
+          <SelectTrigger className="w-[220px]">
+            <SelectValue placeholder="Utilizador" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os utilizadores</SelectItem>
+            {users.map((u) => (
+              <SelectItem key={u} value={u}>
+                {u}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={dossierFilter} onValueChange={setDossierFilter}>
+          <SelectTrigger className="w-[220px]">
+            <SelectValue placeholder="Dossier" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os dossiers</SelectItem>
+            {dossiers.map((d) => (
+              <SelectItem key={d.id} value={d.id}>
+                {d.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="from" className="text-xs text-muted-foreground">
+            De
+          </Label>
+          <Input id="from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-[150px]" />
+          <Label htmlFor="to" className="text-xs text-muted-foreground">
+            Até
+          </Label>
+          <Input id="to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[150px]" />
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setSearch("");
+            setGroup("todos");
+            setUserFilter("todos");
+            setDossierFilter("todos");
+            setDateFrom("");
+            setDateTo("");
+          }}
+        >
+          Limpar filtros
+        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportCsv}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" /> Exportar CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportPdf}>
+            <FileText className="h-4 w-4 mr-2" /> Exportar PDF
+          </Button>
+        </div>
       </div>
+
 
       <Card>
         <CardHeader>
