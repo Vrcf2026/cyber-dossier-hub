@@ -9,7 +9,10 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { auditActionLabels } from "@/lib/audit";
 import { toast } from "@/hooks/use-toast";
-import { RefreshCw, ScrollText, Eye, Pencil, Download, Trash2, Settings2 } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { RefreshCw, ScrollText, Eye, Pencil, Download, Trash2, Settings2, FileSpreadsheet, FileText } from "lucide-react";
+
 
 type Log = {
   id: string;
@@ -43,6 +46,11 @@ export default function AuditLog() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [group, setGroup] = useState("todos");
+  const [userFilter, setUserFilter] = useState("todos");
+  const [dossierFilter, setDossierFilter] = useState("todos");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [dossiers, setDossiers] = useState<{ id: string; title: string }[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
   const [purging, setPurging] = useState(false);
@@ -94,15 +102,34 @@ export default function AuditLog() {
     setLoading(false);
   };
 
+  const loadDossiers = async () => {
+    const { data } = await supabase.from("dossiers").select("id, title").order("title");
+    setDossiers(data ?? []);
+  };
+
   useEffect(() => {
     load();
     loadSettings();
+    loadDossiers();
   }, []);
+
+  const users = useMemo(
+    () => Array.from(new Set(logs.map((l) => l.user_email).filter(Boolean) as string[])).sort(),
+    [logs]
+  );
+
+  const dossierTitle = (id: string | null) =>
+    (id && dossiers.find((d) => d.id === id)?.title) || "";
 
   const filtered = useMemo(
     () =>
       logs.filter((l) => {
         if (group !== "todos" && groupOf(l.action) !== group) return false;
+        if (userFilter !== "todos" && l.user_email !== userFilter) return false;
+        if (dossierFilter !== "todos" && l.dossier_id !== dossierFilter) return false;
+        const t = new Date(l.created_at).getTime();
+        if (dateFrom && t < new Date(`${dateFrom}T00:00:00`).getTime()) return false;
+        if (dateTo && t > new Date(`${dateTo}T23:59:59`).getTime()) return false;
         if (!search.trim()) return true;
         const haystack = [
           l.user_email ?? "",
@@ -113,11 +140,77 @@ export default function AuditLog() {
           .toLowerCase();
         return haystack.includes(search.toLowerCase());
       }),
-    [logs, search, group]
+    [logs, search, group, userFilter, dossierFilter, dateFrom, dateTo]
   );
 
   const fmt = (iso: string) =>
     new Date(iso).toLocaleString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+  const detailsText = (l: Log) => {
+    const d = (l.details ?? {}) as Record<string, unknown>;
+    return [
+      d.dossier_title as string | undefined,
+      d.client_name as string | undefined,
+      d.section_name ? `Secção: ${d.section_name}` : undefined,
+      d.variant ? `Versão: ${d.variant}` : undefined,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  };
+
+  const rows = () =>
+    filtered.map((l) => [
+      fmt(l.created_at),
+      l.user_email ?? "utilizador removido",
+      auditActionLabels[l.action] ?? l.action,
+      groupMeta[groupOf(l.action)].label,
+      dossierTitle(l.dossier_id) || (l.details as any)?.dossier_title || "",
+      detailsText(l),
+    ]);
+
+  const headers = ["Data", "Utilizador", "Ação", "Tipo", "Dossier", "Detalhes"];
+
+  const stamp = () => new Date().toISOString().slice(0, 10);
+
+  const exportCsv = () => {
+    if (filtered.length === 0) {
+      toast({ title: "Sem registos para exportar", variant: "destructive" });
+      return;
+    }
+    const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+    const csv = [headers, ...rows()].map((r) => r.map((c) => esc(String(c))).join(";")).join("\r\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `auditoria-${stamp()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: `CSV exportado (${filtered.length} registos)` });
+  };
+
+  const exportPdf = () => {
+    if (filtered.length === 0) {
+      toast({ title: "Sem registos para exportar", variant: "destructive" });
+      return;
+    }
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(14);
+    doc.text("Registo de auditoria", 14, 14);
+    doc.setFontSize(9);
+    const crit = [
+      `Utilizador: ${userFilter === "todos" ? "todos" : userFilter}`,
+      `Dossier: ${dossierFilter === "todos" ? "todos" : dossierTitle(dossierFilter) || dossierFilter}`,
+      `Período: ${dateFrom || "início"} a ${dateTo || "hoje"}`,
+      `Tipo: ${group === "todos" ? "todos" : groupMeta[group].label}`,
+      `${filtered.length} registo(s)`,
+    ].join("  |  ");
+    doc.text(crit, 14, 20);
+    autoTable(doc, { head: [headers], body: rows(), startY: 25, styles: { fontSize: 8 } });
+    doc.save(`auditoria-${stamp()}.pdf`);
+    toast({ title: `PDF exportado (${filtered.length} registos)` });
+  };
+
 
   return (
     <div className="space-y-6">
@@ -202,7 +295,66 @@ export default function AuditLog() {
             <SelectItem value="exportacao">Exportações</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={userFilter} onValueChange={setUserFilter}>
+          <SelectTrigger className="w-[220px]">
+            <SelectValue placeholder="Utilizador" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os utilizadores</SelectItem>
+            {users.map((u) => (
+              <SelectItem key={u} value={u}>
+                {u}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={dossierFilter} onValueChange={setDossierFilter}>
+          <SelectTrigger className="w-[220px]">
+            <SelectValue placeholder="Dossier" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os dossiers</SelectItem>
+            {dossiers.map((d) => (
+              <SelectItem key={d.id} value={d.id}>
+                {d.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="from" className="text-xs text-muted-foreground">
+            De
+          </Label>
+          <Input id="from" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-[150px]" />
+          <Label htmlFor="to" className="text-xs text-muted-foreground">
+            Até
+          </Label>
+          <Input id="to" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[150px]" />
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setSearch("");
+            setGroup("todos");
+            setUserFilter("todos");
+            setDossierFilter("todos");
+            setDateFrom("");
+            setDateTo("");
+          }}
+        >
+          Limpar filtros
+        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportCsv}>
+            <FileSpreadsheet className="h-4 w-4 mr-2" /> Exportar CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportPdf}>
+            <FileText className="h-4 w-4 mr-2" /> Exportar PDF
+          </Button>
+        </div>
       </div>
+
 
       <Card>
         <CardHeader>
