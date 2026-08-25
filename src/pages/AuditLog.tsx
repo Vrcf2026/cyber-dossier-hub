@@ -46,6 +46,11 @@ export default function AuditLog() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [group, setGroup] = useState("todos");
+  const [userFilter, setUserFilter] = useState("todos");
+  const [dossierFilter, setDossierFilter] = useState("todos");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [dossiers, setDossiers] = useState<{ id: string; title: string }[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
   const [purging, setPurging] = useState(false);
