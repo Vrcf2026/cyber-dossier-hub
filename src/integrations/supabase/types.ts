@@ -88,6 +88,42 @@ export type Database = {
         }
         Relationships: []
       }
+      backup_settings: {
+        Row: {
+          created_at: string
+          drive_folder_id: string | null
+          enabled: boolean
+          id: string
+          last_backup_at: string | null
+          last_backup_error: string | null
+          last_backup_status: string | null
+          retention_weeks: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          drive_folder_id?: string | null
+          enabled?: boolean
+          id?: string
+          last_backup_at?: string | null
+          last_backup_error?: string | null
+          last_backup_status?: string | null
+          retention_weeks?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          drive_folder_id?: string | null
+          enabled?: boolean
+          id?: string
+          last_backup_at?: string | null
+          last_backup_error?: string | null
+          last_backup_status?: string | null
+          retention_weeks?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           address: string | null
