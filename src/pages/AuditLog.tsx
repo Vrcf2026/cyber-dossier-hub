@@ -9,7 +9,10 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { auditActionLabels } from "@/lib/audit";
 import { toast } from "@/hooks/use-toast";
-import { RefreshCw, ScrollText, Eye, Pencil, Download, Trash2, Settings2 } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { RefreshCw, ScrollText, Eye, Pencil, Download, Trash2, Settings2, FileSpreadsheet, FileText } from "lucide-react";
+
 
 type Log = {
   id: string;
