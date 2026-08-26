@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FolderOpen, Building2, LogOut, Sun, Moon, ShieldCheck, FileText, ScrollText } from "lucide-react";
+import { LayoutDashboard, Users, FolderOpen, Building2, LogOut, Sun, Moon, ShieldCheck, FileText, ScrollText, HardDrive } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,6 +27,7 @@ const adminItems = [
   { title: "Empresa", url: "/empresa", icon: Building2 },
   { title: "Utilizadores", url: "/utilizadores", icon: ShieldCheck },
   { title: "Auditoria", url: "/auditoria", icon: ScrollText },
+  { title: "Backups", url: "/backups", icon: HardDrive },
 ];
 
 const clientItems = [
