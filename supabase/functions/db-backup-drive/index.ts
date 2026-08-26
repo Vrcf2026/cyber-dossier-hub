@@ -105,6 +105,19 @@ function parseGoogleServiceAccount(): GoogleServiceAccount {
   }
 }
 
+function getGoogleErrorMessage(body: string): string {
+  try {
+    const parsed = JSON.parse(body);
+    if (typeof parsed?.error?.message === "string") {
+      return parsed.error.message;
+    }
+  } catch {
+    // manter corpo original quando não for JSON
+  }
+
+  return body;
+}
+
 // --- JWT para Google Service Account (RS256) ---
 async function base64url(input: ArrayBuffer | Uint8Array): Promise<string> {
   let bytes: Uint8Array;
@@ -263,7 +276,29 @@ async function uploadToDrive(
 
   if (!startRes.ok) {
     const errText = await startRes.text();
-    throw new Error(`Erro ao iniciar upload Drive: ${errText}`);
+    const googleMessage = getGoogleErrorMessage(errText);
+
+    if (startRes.status === 404) {
+      throw new BackupError(
+        "A pasta do Google Drive não foi encontrada durante o upload.",
+        400,
+        `Confirma que o ID está correto e que a pasta está partilhada com a Service Account. Resposta Google: ${googleMessage}`,
+      );
+    }
+
+    if (startRes.status === 403) {
+      throw new BackupError(
+        "A Service Account não tem permissão para criar ficheiros nesta pasta do Google Drive.",
+        400,
+        `Partilha a pasta com a Service Account como Editor. Resposta Google: ${googleMessage}`,
+      );
+    }
+
+    throw new BackupError(
+      "Erro ao iniciar o upload para o Google Drive.",
+      400,
+      `Google Drive [${startRes.status}]: ${errText}`,
+    );
   }
 
   const uploadUrl = startRes.headers.get("Location");
@@ -282,7 +317,11 @@ async function uploadToDrive(
 
   if (!uploadRes.ok) {
     const errText = await uploadRes.text();
-    throw new Error(`Erro no upload para Drive: ${errText}`);
+    throw new BackupError(
+      "Erro ao enviar o ficheiro para o Google Drive.",
+      400,
+      `Google Drive [${uploadRes.status}]: ${errText}`,
+    );
   }
 
   const fileData = await uploadRes.json();
