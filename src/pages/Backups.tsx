@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -153,9 +154,19 @@ export default function Backups() {
       });
 
       if (error) {
-        toast({ title: "Erro no backup", description: error.message, variant: "destructive" });
+        let description = error.message;
+        if (error instanceof FunctionsHttpError) {
+          try {
+            const responseText = await error.context.text();
+            const errorBody = JSON.parse(responseText);
+            description = [errorBody?.error, errorBody?.details].filter(Boolean).join(" ") || description;
+          } catch {
+            description = error.message;
+          }
+        }
+        toast({ title: "Erro no backup", description, variant: "destructive" });
       } else if (data?.error) {
-        toast({ title: "Erro no backup", description: data.error, variant: "destructive" });
+        toast({ title: "Erro no backup", description: [data.error, data.details].filter(Boolean).join(" "), variant: "destructive" });
       } else if (data?.skipped) {
         toast({ title: "Backup ignorado", description: data.reason });
       } else {
@@ -280,7 +291,7 @@ export default function Backups() {
               placeholder="ID ou URL da pasta do Google Drive"
             />
             <p className="text-xs text-muted-foreground">
-              Cria uma pasta no Google Drive, copia o ID do URL e partilha-a com o email da Service Account.
+              Podes colar o URL completo da pasta. A pasta tem de estar partilhada com o email da Service Account com permissão de Editor.
             </p>
           </div>
 
@@ -327,7 +338,7 @@ export default function Backups() {
             <li>Gera uma chave JSON e <strong>envia-a para o Lovable</strong> para ser guardada como secret <code className="text-xs bg-muted px-1 rounded">GOOGLE_SERVICE_ACCOUNT_JSON</code>.</li>
             <li>Copia o email da Service Account (ex.: <code className="text-xs bg-muted px-1 rounded">backup@projeto.iam.gserviceaccount.com</code>).</li>
             <li>Cria uma pasta no Google Drive e <strong>partilha-a</strong> com esse email (permissão de Editor).</li>
-            <li>Copia o ID da pasta do URL e cola-o no campo acima.</li>
+            <li>Copia o URL completo da pasta ou apenas o ID do URL e cola-o no campo acima.</li>
           </ol>
         </CardContent>
       </Card>

@@ -1,4 +1,5 @@
 import { LayoutDashboard, Users, FolderOpen, Building2, LogOut, Sun, Moon, ShieldCheck, FileText, ScrollText, HardDrive } from "lucide-react";
+import { forwardRef } from "react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,7 +35,7 @@ const clientItems = [
   { title: "Os meus relatórios", url: "/portal", icon: FileText },
 ];
 
-export function AppSidebar() {
+export const AppSidebar = forwardRef<HTMLDivElement>((_, ref) => {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { isAdmin, isCliente, signOut, user } = useAuth();
@@ -43,7 +44,7 @@ export function AppSidebar() {
   const items = isCliente ? clientItems : [...staffItems, ...(isAdmin ? adminItems : [])];
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar ref={ref} collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel className="text-sidebar-primary font-bold text-lg px-4 py-3">
@@ -97,4 +98,6 @@ export function AppSidebar() {
       </SidebarFooter>
     </Sidebar>
   );
-}
+});
+
+AppSidebar.displayName = "AppSidebar";

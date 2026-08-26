@@ -16,9 +16,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GOOGLE_SERVICE_ACCOUNT_JSON = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
+const GOOGLE_DRIVE_BACKUP_SCOPE = "https://www.googleapis.com/auth/drive";
 
 // Tabelas a exportar (ordem importa para restauro — pais antes de filhos)
 const TABLES_TO_BACKUP = [
@@ -48,6 +47,121 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+class BackupError extends Error {
+  status: number;
+  details?: string;
+
+  constructor(message: string, status = 400, details?: string) {
+    super(message);
+    this.name = "BackupError";
+    this.status = status;
+    this.details = details;
+  }
+}
+
+type GoogleServiceAccount = {
+  client_email: string;
+  private_key: string;
+};
+
+type BackupSettingsRow = {
+  id: string;
+  enabled: boolean;
+  drive_folder_id: string | null;
+  retention_weeks: number | null;
+};
+
+function getRequiredEnv(name: string): string {
+  const value = Deno.env.get(name);
+  if (!value) {
+    throw new BackupError(`${name} não configurado no backend.`, 500);
+  }
+  return value;
+}
+
+function createAdminClient() {
+  return createClient(getRequiredEnv("SUPABASE_URL"), getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY"));
+}
+
+function isProjectApiKey(token: string): boolean {
+  if (token === Deno.env.get("SUPABASE_ANON_KEY") || token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) {
+    return true;
+  }
+
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) return false;
+
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const claims = JSON.parse(atob(padded));
+    return claims?.role === "anon" || claims?.role === "service_role";
+  } catch {
+    return false;
+  }
+}
+
+async function updateBackupError(
+  admin: ReturnType<typeof createClient>,
+  settings: BackupSettingsRow | null,
+  message: string,
+  details?: string,
+) {
+  if (!settings?.id) return;
+
+  const storedError = details ? `${message} ${details}` : message;
+  await admin
+    .from("backup_settings")
+    .update({
+      last_backup_at: new Date().toISOString(),
+      last_backup_status: "erro",
+      last_backup_error: storedError,
+    })
+    .eq("id", settings.id);
+}
+
+function parseGoogleServiceAccount(): GoogleServiceAccount {
+  if (!GOOGLE_SERVICE_ACCOUNT_JSON) {
+    throw new BackupError("GOOGLE_SERVICE_ACCOUNT_JSON não configurado no backend.");
+  }
+
+  try {
+    const parsed = JSON.parse(GOOGLE_SERVICE_ACCOUNT_JSON);
+    if (
+      typeof parsed?.client_email !== "string" ||
+      typeof parsed?.private_key !== "string" ||
+      !parsed.client_email.trim() ||
+      !parsed.private_key.trim()
+    ) {
+      throw new Error("Campos obrigatórios em falta.");
+    }
+
+    return {
+      client_email: parsed.client_email,
+      private_key: parsed.private_key,
+    };
+  } catch (err) {
+    throw new BackupError(
+      "A chave JSON da Google Service Account é inválida.",
+      400,
+      String(err),
+    );
+  }
+}
+
+function getGoogleErrorMessage(body: string): string {
+  try {
+    const parsed = JSON.parse(body);
+    if (typeof parsed?.error?.message === "string") {
+      return parsed.error.message;
+    }
+  } catch {
+    // manter corpo original quando não for JSON
+  }
+
+  return body;
+}
+
 // --- JWT para Google Service Account (RS256) ---
 async function base64url(input: ArrayBuffer | Uint8Array): Promise<string> {
   let bytes: Uint8Array;
@@ -60,12 +174,7 @@ async function base64url(input: ArrayBuffer | Uint8Array): Promise<string> {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-async function getGoogleAccessToken(scopes: string[]): Promise<string> {
-  if (!GOOGLE_SERVICE_ACCOUNT_JSON) {
-    throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON não configurado.");
-  }
-
-  const sa = JSON.parse(GOOGLE_SERVICE_ACCOUNT_JSON);
+async function getGoogleAccessToken(sa: GoogleServiceAccount, scopes: string[]): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
 
   const header = { alg: "RS256", typ: "JWT" };
@@ -120,11 +229,70 @@ async function getGoogleAccessToken(scopes: string[]): Promise<string> {
 
   if (!tokenRes.ok) {
     const errText = await tokenRes.text();
-    throw new Error(`Erro ao obter token Google: ${errText}`);
+    throw new BackupError(
+      "Não foi possível autenticar a Service Account no Google.",
+      400,
+      `Google OAuth [${tokenRes.status}]: ${errText}`,
+    );
   }
 
   const tokenData = await tokenRes.json();
   return tokenData.access_token;
+}
+
+async function validateDriveFolder(
+  accessToken: string,
+  folderId: string,
+  serviceAccountEmail: string,
+): Promise<string> {
+  const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?fields=id,name,mimeType,capabilities/canAddChildren&supportsAllDrives=true`;
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    if (res.status === 404) {
+      throw new BackupError(
+        `A pasta do Google Drive não foi encontrada ou não está partilhada com a Service Account (${serviceAccountEmail}).`,
+        400,
+        "Confirma que o ID/URL da pasta está correto e partilha a pasta com esse email com permissão de Editor.",
+      );
+    }
+
+    if (res.status === 403) {
+      throw new BackupError(
+        `A Service Account (${serviceAccountEmail}) não tem permissão para aceder à pasta do Google Drive.`,
+        400,
+        "Confirma a partilha da pasta como Editor e que a Google Drive API está ativa no projeto Google Cloud.",
+      );
+    }
+
+    throw new BackupError(
+      "Não foi possível validar a pasta do Google Drive.",
+      400,
+      `Google Drive [${res.status}]: ${errText}`,
+    );
+  }
+
+  const folder = await res.json();
+  if (folder.mimeType !== "application/vnd.google-apps.folder") {
+    throw new BackupError(
+      "O ID configurado no Google Drive não pertence a uma pasta.",
+      400,
+      "Abre a pasta no Google Drive e copia o ID do URL /drive/folders/<ID>.",
+    );
+  }
+
+  if (folder.capabilities?.canAddChildren === false) {
+    throw new BackupError(
+      `A Service Account (${serviceAccountEmail}) não pode criar ficheiros nesta pasta.`,
+      400,
+      "Partilha a pasta com esse email e atribui permissão de Editor.",
+    );
+  }
+
+  return folder.name ?? folderId;
 }
 
 // --- Upload para Google Drive (resumable upload) ---
@@ -152,7 +320,29 @@ async function uploadToDrive(
 
   if (!startRes.ok) {
     const errText = await startRes.text();
-    throw new Error(`Erro ao iniciar upload Drive: ${errText}`);
+    const googleMessage = getGoogleErrorMessage(errText);
+
+    if (startRes.status === 404) {
+      throw new BackupError(
+        "A pasta do Google Drive não foi encontrada durante o upload.",
+        400,
+        `Confirma que o ID está correto e que a pasta está partilhada com a Service Account. Resposta Google: ${googleMessage}`,
+      );
+    }
+
+    if (startRes.status === 403) {
+      throw new BackupError(
+        "A Service Account não tem permissão para criar ficheiros nesta pasta do Google Drive.",
+        400,
+        `Partilha a pasta com a Service Account como Editor. Resposta Google: ${googleMessage}`,
+      );
+    }
+
+    throw new BackupError(
+      "Erro ao iniciar o upload para o Google Drive.",
+      400,
+      `Google Drive [${startRes.status}]: ${errText}`,
+    );
   }
 
   const uploadUrl = startRes.headers.get("Location");
@@ -171,7 +361,11 @@ async function uploadToDrive(
 
   if (!uploadRes.ok) {
     const errText = await uploadRes.text();
-    throw new Error(`Erro no upload para Drive: ${errText}`);
+    throw new BackupError(
+      "Erro ao enviar o ficheiro para o Google Drive.",
+      400,
+      `Google Drive [${uploadRes.status}]: ${errText}`,
+    );
   }
 
   const fileData = await uploadRes.json();
@@ -183,7 +377,7 @@ async function listDriveFiles(
   accessToken: string,
   folderId: string,
 ): Promise<{ id: string; name: string; createdTime: string }[]> {
-  const query = `'${folderId}' in parents and trashed = false`;
+  const query = `'${folderId}' in parents and trashed = false and name contains 'cyberdossier-backup-'`;
   const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,createdTime)&orderBy=createdTime&supportsAllDrives=true&pageSize=200`;
 
   const res = await fetch(url, {
@@ -208,11 +402,10 @@ async function deleteDriveFile(accessToken: string, fileId: string): Promise<voi
 
 // --- Exportar todas as tabelas ---
 async function exportDatabase(): Promise<string> {
-  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const admin = createAdminClient();
   const dump: Record<string, unknown> = {
     _meta: {
       exported_at: new Date().toISOString(),
-      supabase_url: SUPABASE_URL,
       table_count: TABLES_TO_BACKUP.length,
     },
   };
@@ -251,13 +444,16 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const admin = createAdminClient();
+    let settings: BackupSettingsRow | null = null;
 
     // Se for chamada autenticada (manual), validar admin
     const authHeader = req.headers.get("Authorization");
-    if (authHeader) {
-      const jwt = authHeader.replace("Bearer ", "");
-      const { data: userData, error: userError } = await admin.auth.getUser(jwt);
+    const bearerToken = authHeader?.replace("Bearer ", "").trim() ?? "";
+    const isScheduledCall = bearerToken ? isProjectApiKey(bearerToken) : true;
+
+    if (bearerToken && !isScheduledCall) {
+      const { data: userData, error: userError } = await admin.auth.getUser(bearerToken);
       if (userError || !userData?.user) {
         return jsonResponse({ error: "Sessão inválida." }, 401);
       }
@@ -271,64 +467,52 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ error: "Apenas administradores podem gerir backups." }, 403);
       }
     }
-    // Se não houver Authorization, assume-se chamada do cron (anon key no header)
+    // Sem sessão de utilizador, assume-se chamada agendada/backend.
 
     // Ler configuração
-    const { data: settings, error: settingsError } = await admin
+    const { data, error: settingsError } = await admin
       .from("backup_settings")
       .select("*")
       .limit(1)
       .maybeSingle();
+    settings = data;
 
     if (settingsError || !settings) {
       return jsonResponse({ error: "Configuração de backup não encontrada." }, 400);
     }
 
-    if (!settings.enabled && !authHeader) {
+    if (!settings.enabled && isScheduledCall) {
       // Cron chamou mas backups estão desativados — sair silenciosamente
       return jsonResponse({ skipped: true, reason: "Backups desativados." });
     }
 
-    if (!GOOGLE_SERVICE_ACCOUNT_JSON) {
-      const errMsg = "GOOGLE_SERVICE_ACCOUNT_JSON não configurado no backend.";
-      await admin
-        .from("backup_settings")
-        .update({
-          last_backup_at: new Date().toISOString(),
-          last_backup_status: "erro",
-          last_backup_error: errMsg,
-        })
-        .eq("id", settings.id);
-      return jsonResponse({ error: errMsg }, 400);
-    }
+    const folderId = typeof settings.drive_folder_id === "string" ? settings.drive_folder_id.trim() : "";
 
-    if (!settings.drive_folder_id) {
+    if (!folderId) {
       const errMsg = "ID da pasta do Google Drive não configurado.";
-      await admin
-        .from("backup_settings")
-        .update({
-          last_backup_at: new Date().toISOString(),
-          last_backup_status: "erro",
-          last_backup_error: errMsg,
-        })
-        .eq("id", settings.id);
+      await updateBackupError(admin, settings, errMsg);
       return jsonResponse({ error: errMsg }, 400);
     }
 
-    // 1) Exportar base de dados
+    const serviceAccount = parseGoogleServiceAccount();
+
+    // 1) Autenticar e validar acesso à pasta antes de exportar dados
+    const accessToken = await getGoogleAccessToken(serviceAccount, [GOOGLE_DRIVE_BACKUP_SCOPE]);
+    const folderName = await validateDriveFolder(
+      accessToken,
+      folderId,
+      serviceAccount.client_email,
+    );
+
+    // 2) Exportar base de dados
     const jsonDump = await exportDatabase();
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const fileName = `cyberdossier-backup-${timestamp}.json`;
 
-    // 2) Autenticar no Google Drive
-    const accessToken = await getGoogleAccessToken([
-      "https://www.googleapis.com/auth/drive.file",
-    ]);
-
     // 3) Upload
     const fileId = await uploadToDrive(
       accessToken,
-      settings.drive_folder_id,
+      folderId,
       fileName,
       jsonDump,
     );
@@ -338,9 +522,9 @@ Deno.serve(async (req: Request) => {
     const cutoff = new Date(Date.now() - retentionWeeks * 7 * 24 * 60 * 60 * 1000);
     let deletedCount = 0;
     try {
-      const files = await listDriveFiles(accessToken, settings.drive_folder_id);
+      const files = await listDriveFiles(accessToken, folderId);
       for (const file of files) {
-        if (new Date(file.createdTime) < cutoff) {
+        if (file.name.startsWith("cyberdossier-backup-") && new Date(file.createdTime) < cutoff) {
           await deleteDriveFile(accessToken, file.id);
           deletedCount++;
         }
@@ -363,25 +547,28 @@ Deno.serve(async (req: Request) => {
       success: true,
       file_id: fileId,
       file_name: fileName,
+      folder_name: folderName,
       size_bytes: new TextEncoder().encode(jsonDump).length,
       old_backups_deleted: deletedCount,
     });
   } catch (err) {
+    const errorMessage = err instanceof BackupError ? err.message : "Erro interno no backup.";
+    const errorDetails = err instanceof BackupError ? err.details : String(err);
+    const status = err instanceof BackupError ? err.status : 500;
+
     // Registar erro na configuração
     try {
-      const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-      await admin
+      const admin = createAdminClient();
+      const { data: settings } = await admin
         .from("backup_settings")
-        .update({
-          last_backup_at: new Date().toISOString(),
-          last_backup_status: "erro",
-          last_backup_error: String(err),
-        })
-        .neq("id", "00000000-0000-0000-0000-000000000000");
+        .select("id,enabled,drive_folder_id,retention_weeks")
+        .limit(1)
+        .maybeSingle();
+      await updateBackupError(admin, settings, errorMessage, errorDetails);
     } catch {
       // Ignorar erro ao escrever erro
     }
 
-    return jsonResponse({ error: "Erro interno no backup.", details: String(err) }, 500);
+    return jsonResponse({ error: errorMessage, details: errorDetails }, status);
   }
 });
