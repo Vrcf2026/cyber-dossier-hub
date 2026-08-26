@@ -550,7 +550,6 @@ Deno.serve(async (req: Request) => {
         .select("id,enabled,drive_folder_id,retention_weeks")
         .limit(1)
         .maybeSingle();
-      await admin
       await updateBackupError(admin, settings, errorMessage, errorDetails);
     } catch {
       // Ignorar erro ao escrever erro

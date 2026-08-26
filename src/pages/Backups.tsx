@@ -157,10 +157,11 @@ export default function Backups() {
         let description = error.message;
         if (error instanceof FunctionsHttpError) {
           try {
-            const errorBody = await error.context.json();
+            const responseText = await error.context.text();
+            const errorBody = JSON.parse(responseText);
             description = [errorBody?.error, errorBody?.details].filter(Boolean).join(" ") || description;
           } catch {
-            description = await error.context.text();
+            description = error.message;
           }
         }
         toast({ title: "Erro no backup", description, variant: "destructive" });
