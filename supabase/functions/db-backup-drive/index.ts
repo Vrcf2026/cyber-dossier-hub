@@ -64,6 +64,13 @@ type GoogleServiceAccount = {
   private_key: string;
 };
 
+type BackupSettingsRow = {
+  id: string;
+  enabled: boolean;
+  drive_folder_id: string | null;
+  retention_weeks: number | null;
+};
+
 function getRequiredEnv(name: string): string {
   const value = Deno.env.get(name);
   if (!value) {
@@ -74,6 +81,29 @@ function getRequiredEnv(name: string): string {
 
 function createAdminClient() {
   return createClient(getRequiredEnv("SUPABASE_URL"), getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY"));
+}
+
+function isProjectApiKey(token: string): boolean {
+  return token === Deno.env.get("SUPABASE_ANON_KEY") || token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+}
+
+async function updateBackupError(
+  admin: ReturnType<typeof createClient>,
+  settings: BackupSettingsRow | null,
+  message: string,
+  details?: string,
+) {
+  if (!settings?.id) return;
+
+  const storedError = details ? `${message} ${details}` : message;
+  await admin
+    .from("backup_settings")
+    .update({
+      last_backup_at: new Date().toISOString(),
+      last_backup_status: "erro",
+      last_backup_error: storedError,
+    })
+    .eq("id", settings.id);
 }
 
 function parseGoogleServiceAccount(): GoogleServiceAccount {
@@ -401,12 +431,15 @@ Deno.serve(async (req: Request) => {
 
   try {
     const admin = createAdminClient();
+    let settings: BackupSettingsRow | null = null;
 
     // Se for chamada autenticada (manual), validar admin
     const authHeader = req.headers.get("Authorization");
-    if (authHeader) {
-      const jwt = authHeader.replace("Bearer ", "");
-      const { data: userData, error: userError } = await admin.auth.getUser(jwt);
+    const bearerToken = authHeader?.replace("Bearer ", "").trim() ?? "";
+    const isScheduledCall = bearerToken ? isProjectApiKey(bearerToken) : true;
+
+    if (bearerToken && !isScheduledCall) {
+      const { data: userData, error: userError } = await admin.auth.getUser(bearerToken);
       if (userError || !userData?.user) {
         return jsonResponse({ error: "Sessão inválida." }, 401);
       }
@@ -420,20 +453,21 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ error: "Apenas administradores podem gerir backups." }, 403);
       }
     }
-    // Se não houver Authorization, assume-se chamada do cron (anon key no header)
+    // Sem sessão de utilizador, assume-se chamada agendada/backend.
 
     // Ler configuração
-    const { data: settings, error: settingsError } = await admin
+    const { data, error: settingsError } = await admin
       .from("backup_settings")
       .select("*")
       .limit(1)
       .maybeSingle();
+    settings = data;
 
     if (settingsError || !settings) {
       return jsonResponse({ error: "Configuração de backup não encontrada." }, 400);
     }
 
-    if (!settings.enabled && !authHeader) {
+    if (!settings.enabled && isScheduledCall) {
       // Cron chamou mas backups estão desativados — sair silenciosamente
       return jsonResponse({ skipped: true, reason: "Backups desativados." });
     }
@@ -442,14 +476,7 @@ Deno.serve(async (req: Request) => {
 
     if (!folderId) {
       const errMsg = "ID da pasta do Google Drive não configurado.";
-      await admin
-        .from("backup_settings")
-        .update({
-          last_backup_at: new Date().toISOString(),
-          last_backup_status: "erro",
-          last_backup_error: errMsg,
-        })
-        .eq("id", settings.id);
+      await updateBackupError(admin, settings, errMsg);
       return jsonResponse({ error: errMsg }, 400);
     }
 
@@ -518,15 +545,13 @@ Deno.serve(async (req: Request) => {
     // Registar erro na configuração
     try {
       const admin = createAdminClient();
-      const storedError = errorDetails ? `${errorMessage} ${errorDetails}` : errorMessage;
-      await admin
+      const { data: settings } = await admin
         .from("backup_settings")
-        .update({
-          last_backup_at: new Date().toISOString(),
-          last_backup_status: "erro",
-          last_backup_error: storedError,
-        })
-        .neq("id", "00000000-0000-0000-0000-000000000000");
+        .select("id,enabled,drive_folder_id,retention_weeks")
+        .limit(1)
+        .maybeSingle();
+      await admin
+      await updateBackupError(admin, settings, errorMessage, errorDetails);
     } catch {
       // Ignorar erro ao escrever erro
     }
