@@ -84,7 +84,21 @@ function createAdminClient() {
 }
 
 function isProjectApiKey(token: string): boolean {
-  return token === Deno.env.get("SUPABASE_ANON_KEY") || token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (token === Deno.env.get("SUPABASE_ANON_KEY") || token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) {
+    return true;
+  }
+
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) return false;
+
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const claims = JSON.parse(atob(padded));
+    return claims?.role === "anon" || claims?.role === "service_role";
+  } catch {
+    return false;
+  }
 }
 
 async function updateBackupError(
