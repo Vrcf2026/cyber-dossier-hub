@@ -33,6 +33,62 @@ export default function Backups() {
   const [driveFolderId, setDriveFolderId] = useState("");
   const [retentionWeeks, setRetentionWeeks] = useState(12);
 
+  const normalizeDriveFolderId = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+
+    const folderMatch = trimmed.match(/\/folders\/([^/?#]+)/);
+    if (folderMatch?.[1]) return folderMatch[1];
+
+    try {
+      const url = new URL(trimmed);
+      return url.searchParams.get("id") ?? trimmed;
+    } catch {
+      return trimmed;
+    }
+  };
+
+  const saveSettings = async (showSuccess = true) => {
+    if (!settings?.id) {
+      toast({
+        title: "Configuração indisponível",
+        description: "Recarrega a página e tenta novamente.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    const normalizedFolderId = normalizeDriveFolderId(driveFolderId);
+    setDriveFolderId(normalizedFolderId);
+
+    const { error } = await supabase
+      .from("backup_settings")
+      .update({
+        enabled,
+        drive_folder_id: normalizedFolderId || null,
+        retention_weeks: retentionWeeks,
+      })
+      .eq("id", settings.id);
+
+    if (error) {
+      toast({ title: "Erro ao guardar", description: error.message, variant: "destructive" });
+      return false;
+    }
+
+    setSettings({
+      ...settings,
+      enabled,
+      drive_folder_id: normalizedFolderId || null,
+      retention_weeks: retentionWeeks,
+    });
+
+    if (showSuccess) {
+      toast({ title: "Configuração guardada", description: "As definições de backup foram atualizadas." });
+    }
+
+    return true;
+  };
+
   const loadSettings = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -58,27 +114,40 @@ export default function Backups() {
 
   const handleSave = async () => {
     setSaving(true);
-    const { error } = await supabase
-      .from("backup_settings")
-      .update({
-        enabled,
-        drive_folder_id: driveFolderId.trim() || null,
-        retention_weeks: retentionWeeks,
-      })
-      .eq("id", settings?.id);
-
-    if (error) {
-      toast({ title: "Erro ao guardar", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Configuração guardada", description: "As definições de backup foram atualizadas." });
+    const saved = await saveSettings();
+    if (saved) {
       loadSettings();
     }
     setSaving(false);
   };
 
   const handleRunNow = async () => {
+    const normalizedFolderId = normalizeDriveFolderId(driveFolderId);
+    if (!normalizedFolderId) {
+      toast({
+        title: "Falta o ID da pasta do Google Drive",
+        description: "Cola o ID ou o URL da pasta, guarda a configuração e volta a executar o backup.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setRunning(true);
     try {
+      const savedFolderId = settings?.drive_folder_id ?? "";
+      const hasUnsavedChanges =
+        normalizedFolderId !== savedFolderId ||
+        enabled !== settings?.enabled ||
+        retentionWeeks !== settings?.retention_weeks;
+
+      if (hasUnsavedChanges) {
+        const saved = await saveSettings(false);
+        if (!saved) {
+          setRunning(false);
+          return;
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke("db-backup-drive", {
         headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` },
       });
@@ -160,7 +229,12 @@ export default function Backups() {
               <strong>Erro:</strong> {settings.last_backup_error}
             </div>
           )}
-          <Button onClick={handleRunNow} disabled={running} variant="outline" className="w-full">
+          {!driveFolderId.trim() && (
+            <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+              Antes de executar, indica a pasta do Google Drive na configuração abaixo.
+            </div>
+          )}
+          <Button onClick={handleRunNow} disabled={running || saving} variant="outline" className="w-full">
             {running ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -203,7 +277,7 @@ export default function Backups() {
               id="folder"
               value={driveFolderId}
               onChange={(e) => setDriveFolderId(e.target.value)}
-              placeholder="ex.: 1aBcDeFgHiJkLmNoPqRsTuVwXyZ"
+              placeholder="ID ou URL da pasta do Google Drive"
             />
             <p className="text-xs text-muted-foreground">
               Cria uma pasta no Google Drive, copia o ID do URL e partilha-a com o email da Service Account.
