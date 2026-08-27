@@ -255,7 +255,12 @@ async function uploadToDrive(
 async function listDriveFiles(
   folderId: string,
 ): Promise<{ id: string; name: string; createdTime: string }[]> {
-  const query = `'${folderId}' in parents and trashed = false and name contains 'cyberdossier-backup-'`;
+  const query = [
+    folderId ? `'${folderId}' in parents` : null,
+    "trashed = false",
+    "name contains 'cyberdossier-backup-'",
+  ].filter(Boolean).join(" and ");
+
   const res = await driveFetch(
     `/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,createdTime)&orderBy=createdTime&supportsAllDrives=true&includeItemsFromAllDrives=true&pageSize=200`,
   );
