@@ -16,8 +16,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
-const GOOGLE_SERVICE_ACCOUNT_JSON = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
-const GOOGLE_DRIVE_BACKUP_SCOPE = "https://www.googleapis.com/auth/drive";
+const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_drive";
+
 
 // Tabelas a exportar (ordem importa para restauro — pais antes de filhos)
 const TABLES_TO_BACKUP = [
@@ -59,10 +59,6 @@ class BackupError extends Error {
   }
 }
 
-type GoogleServiceAccount = {
-  client_email: string;
-  private_key: string;
-};
 
 type BackupSettingsRow = {
   id: string;
@@ -120,35 +116,6 @@ async function updateBackupError(
     .eq("id", settings.id);
 }
 
-function parseGoogleServiceAccount(): GoogleServiceAccount {
-  if (!GOOGLE_SERVICE_ACCOUNT_JSON) {
-    throw new BackupError("GOOGLE_SERVICE_ACCOUNT_JSON não configurado no backend.");
-  }
-
-  try {
-    const parsed = JSON.parse(GOOGLE_SERVICE_ACCOUNT_JSON);
-    if (
-      typeof parsed?.client_email !== "string" ||
-      typeof parsed?.private_key !== "string" ||
-      !parsed.client_email.trim() ||
-      !parsed.private_key.trim()
-    ) {
-      throw new Error("Campos obrigatórios em falta.");
-    }
-
-    return {
-      client_email: parsed.client_email,
-      private_key: parsed.private_key,
-    };
-  } catch (err) {
-    throw new BackupError(
-      "A chave JSON da Google Service Account é inválida.",
-      400,
-      String(err),
-    );
-  }
-}
-
 function getGoogleErrorMessage(body: string): string {
   try {
     const parsed = JSON.parse(body);
@@ -162,121 +129,44 @@ function getGoogleErrorMessage(body: string): string {
   return body;
 }
 
-// --- JWT para Google Service Account (RS256) ---
-async function base64url(input: ArrayBuffer | Uint8Array): Promise<string> {
-  let bytes: Uint8Array;
-  if (input instanceof ArrayBuffer) {
-    bytes = new Uint8Array(input);
-  } else {
-    bytes = input;
-  }
-  const binary = String.fromCharCode(...bytes);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
+// --- Chamadas ao Google Drive através do connector gateway (ligação OAuth) ---
+async function driveFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  const driveKey = Deno.env.get("GOOGLE_DRIVE_API_KEY");
 
-async function getGoogleAccessToken(sa: GoogleServiceAccount, scopes: string[]): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-
-  const header = { alg: "RS256", typ: "JWT" };
-  const payload = {
-    iss: sa.client_email,
-    scope: scopes.join(" "),
-    aud: "https://oauth2.googleapis.com/token",
-    iat: now,
-    exp: now + 3600,
-  };
-
-  const headerB64 = await base64url(
-    new TextEncoder().encode(JSON.stringify(header)),
-  );
-  const payloadB64 = await base64url(
-    new TextEncoder().encode(JSON.stringify(payload)),
-  );
-  const signingInput = `${headerB64}.${payloadB64}`;
-
-  // Importar a chave privada RSA
-  // O formato PEM precisa de ser convertido para DER
-  const pemBody = sa.private_key
-    .replace("-----BEGIN PRIVATE KEY-----", "")
-    .replace("-----END PRIVATE KEY-----", "")
-    .replace(/\s+/g, "");
-  const pemBytes = Uint8Array.from(atob(pemBody), (c) => c.charCodeAt(0));
-
-  const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8",
-    pemBytes,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-
-  const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    cryptoKey,
-    new TextEncoder().encode(signingInput),
-  );
-
-  const jwt = `${signingInput}.${await base64url(signature)}`;
-
-  const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: jwt,
-    }),
-  });
-
-  if (!tokenRes.ok) {
-    const errText = await tokenRes.text();
+  if (!lovableKey || !driveKey) {
     throw new BackupError(
-      "Não foi possível autenticar a Service Account no Google.",
+      "A ligação ao Google Drive não está configurada neste projeto.",
       400,
-      `Google OAuth [${tokenRes.status}]: ${errText}`,
+      "Liga a tua conta Google Drive nos conectores do projeto e tenta novamente.",
     );
   }
 
-  const tokenData = await tokenRes.json();
-  return tokenData.access_token;
+  return await fetch(`${GATEWAY_URL}${path}`, {
+    ...init,
+    headers: {
+      ...(init.headers ?? {}),
+      Authorization: `Bearer ${lovableKey}`,
+      "X-Connection-Api-Key": driveKey,
+    },
+  });
 }
 
-async function validateDriveFolder(
-  accessToken: string,
-  folderId: string,
-  serviceAccountEmail: string,
-): Promise<string> {
-  const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?fields=id,name,mimeType,driveId,capabilities/canAddChildren&supportsAllDrives=true`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+async function validateDriveFolder(folderId: string): Promise<string> {
+  const res = await driveFetch(
+    `/drive/v3/files/${encodeURIComponent(folderId)}?fields=id,name,mimeType&supportsAllDrives=true`,
+  );
 
   if (!res.ok) {
     const errText = await res.text();
-    if (res.status === 404) {
-      throw new BackupError(
-        `A pasta do Google Drive não foi encontrada ou não está partilhada com a Service Account (${serviceAccountEmail}).`,
-        400,
-        "Confirma que o ID/URL da pasta está correto e partilha a pasta com esse email com permissão de Editor.",
-      );
-    }
-
-    if (res.status === 403) {
-      throw new BackupError(
-        `A Service Account (${serviceAccountEmail}) não tem permissão para aceder à pasta do Google Drive.`,
-        400,
-        "Confirma a partilha da pasta como Editor e que a Google Drive API está ativa no projeto Google Cloud.",
-      );
-    }
-
-    throw new BackupError(
-      "Não foi possível validar a pasta do Google Drive.",
-      400,
-      `Google Drive [${res.status}]: ${errText}`,
-    );
+    // Com o âmbito drive.file, pastas criadas fora da app podem não ser legíveis.
+    // Nesse caso seguimos em frente e deixamos o upload validar o destino.
+    console.warn(`Aviso: não foi possível ler a pasta do Drive [${res.status}]: ${errText}`);
+    return folderId;
   }
 
   const folder = await res.json();
-  if (folder.mimeType !== "application/vnd.google-apps.folder") {
+  if (folder.mimeType && folder.mimeType !== "application/vnd.google-apps.folder") {
     throw new BackupError(
       "O ID configurado no Google Drive não pertence a uma pasta.",
       400,
@@ -284,133 +174,96 @@ async function validateDriveFolder(
     );
   }
 
-  if (folder.capabilities?.canAddChildren === false) {
-    throw new BackupError(
-      `A Service Account (${serviceAccountEmail}) não pode criar ficheiros nesta pasta.`,
-      400,
-      "Partilha a pasta com esse email e atribui permissão de Editor.",
-    );
-  }
-
-  if (!folder.driveId) {
-    throw new BackupError(
-      "A pasta configurada pertence ao «O meu disco» e a Service Account não tem quota de armazenamento própria.",
-      400,
-      "Cria um Drive partilhado no Google Workspace, adiciona a Service Account como Gestor de conteúdo e configura aqui uma pasta desse Drive partilhado.",
-    );
-  }
-
   return folder.name ?? folderId;
 }
 
-// --- Upload para Google Drive (resumable upload) ---
+// --- Upload para Google Drive (multipart, via gateway) ---
 async function uploadToDrive(
-  accessToken: string,
   folderId: string,
   fileName: string,
   content: string,
 ): Promise<string> {
-  // Iniciar sessão de upload resumable
-  const startRes = await fetch(
-    "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true",
+  const boundary = `cyberdossier-${crypto.randomUUID()}`;
+  const metadata = {
+    name: fileName,
+    mimeType: "application/json",
+    parents: folderId ? [folderId] : undefined,
+  };
+
+  const body = [
+    `--${boundary}`,
+    "Content-Type: application/json; charset=UTF-8",
+    "",
+    JSON.stringify(metadata),
+    `--${boundary}`,
+    "Content-Type: application/json",
+    "",
+    content,
+    `--${boundary}--`,
+    "",
+  ].join("\r\n");
+
+  const res = await driveFetch(
+    "/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id",
     {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: fileName,
-        parents: folderId ? [folderId] : undefined,
-      }),
+      headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+      body,
     },
   );
 
-  if (!startRes.ok) {
-    const errText = await startRes.text();
+  if (!res.ok) {
+    const errText = await res.text();
     const googleMessage = getGoogleErrorMessage(errText);
 
-    if (startRes.status === 404) {
+    if (res.status === 401) {
       throw new BackupError(
-        "A pasta do Google Drive não foi encontrada durante o upload.",
+        "A ligação ao Google Drive expirou ou não tem autorização.",
         400,
-        `Confirma que o ID está correto e que a pasta está partilhada com a Service Account. Resposta Google: ${googleMessage}`,
+        `Volta a autorizar a ligação Google Drive nos conectores do projeto. Resposta Google: ${googleMessage}`,
       );
     }
 
-    if (startRes.status === 403) {
-      if (googleMessage.includes("Service Accounts do not have storage quota") || googleMessage.includes("storageQuotaExceeded")) {
-        throw new BackupError(
-          "A pasta pertence ao «O meu disco» e a Service Account não tem quota de armazenamento própria.",
-          400,
-          "Usa uma pasta num Drive partilhado do Google Workspace e adiciona a Service Account como Gestor de conteúdo.",
-        );
-      }
-
+    if (res.status === 404) {
       throw new BackupError(
-        "A Service Account não tem permissão para criar ficheiros nesta pasta do Google Drive.",
+        "A pasta do Google Drive indicada não foi encontrada.",
         400,
-        `Partilha a pasta com a Service Account como Editor. Resposta Google: ${googleMessage}`,
+        `Confirma o ID/URL da pasta na conta Google que autorizaste. Resposta Google: ${googleMessage}`,
+      );
+    }
+
+    if (res.status === 403) {
+      throw new BackupError(
+        "Sem permissão para criar ficheiros nesta pasta do Google Drive.",
+        400,
+        `Confirma que a conta autorizada tem acesso de edição à pasta. Resposta Google: ${googleMessage}`,
       );
     }
 
     throw new BackupError(
-      "Erro ao iniciar o upload para o Google Drive.",
+      "Erro ao enviar o backup para o Google Drive.",
       400,
-      `Google Drive [${startRes.status}]: ${errText}`,
+      `Google Drive [${res.status}]: ${errText}`,
     );
   }
 
-  const uploadUrl = startRes.headers.get("Location");
-  if (!uploadUrl) {
-    throw new Error("Drive não devolveu URL de upload.");
-  }
-
-  const contentBytes = new TextEncoder().encode(content);
-  const uploadRes = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Length": contentBytes.length.toString(),
-    },
-    body: content,
-  });
-
-  if (!uploadRes.ok) {
-    const errText = await uploadRes.text();
-    const googleMessage = getGoogleErrorMessage(errText);
-    if (
-      uploadRes.status === 403 &&
-      (googleMessage.includes("Service Accounts do not have storage quota") ||
-        googleMessage.includes("storageQuotaExceeded"))
-    ) {
-      throw new BackupError(
-        "A pasta pertence ao «O meu disco» e a Service Account não tem quota de armazenamento própria.",
-        400,
-        "Usa uma pasta num Drive partilhado do Google Workspace e adiciona a Service Account como Gestor de conteúdo.",
-      );
-    }
-    throw new BackupError(
-      "Erro ao enviar o ficheiro para o Google Drive.",
-      400,
-      `Google Drive [${uploadRes.status}]: ${errText}`,
-    );
-  }
-
-  const fileData = await uploadRes.json();
+  const fileData = await res.json();
   return fileData.id;
 }
 
 // --- Listar ficheiros antigos na pasta para limpeza ---
 async function listDriveFiles(
-  accessToken: string,
   folderId: string,
 ): Promise<{ id: string; name: string; createdTime: string }[]> {
-  const query = `'${folderId}' in parents and trashed = false and name contains 'cyberdossier-backup-'`;
-  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,createdTime)&orderBy=createdTime&supportsAllDrives=true&includeItemsFromAllDrives=true&pageSize=200`;
+  const query = [
+    folderId ? `'${folderId}' in parents` : null,
+    "trashed = false",
+    "name contains 'cyberdossier-backup-'",
+  ].filter(Boolean).join(" and ");
 
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const res = await driveFetch(
+    `/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,createdTime)&orderBy=createdTime&supportsAllDrives=true&includeItemsFromAllDrives=true&pageSize=200`,
+  );
 
   if (!res.ok) {
     const errText = await res.text();
@@ -421,12 +274,10 @@ async function listDriveFiles(
   return data.files ?? [];
 }
 
-async function deleteDriveFile(accessToken: string, fileId: string): Promise<void> {
-  await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?supportsAllDrives=true`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+async function deleteDriveFile(fileId: string): Promise<void> {
+  await driveFetch(`/drive/v3/files/${fileId}?supportsAllDrives=true`, { method: "DELETE" });
 }
+
 
 // --- Exportar todas as tabelas ---
 async function exportDatabase(): Promise<string> {
@@ -516,21 +367,9 @@ Deno.serve(async (req: Request) => {
 
     const folderId = typeof settings.drive_folder_id === "string" ? settings.drive_folder_id.trim() : "";
 
-    if (!folderId) {
-      const errMsg = "ID da pasta do Google Drive não configurado.";
-      await updateBackupError(admin, settings, errMsg);
-      return jsonResponse({ error: errMsg }, 400);
-    }
+    // Pasta é opcional: sem pasta, o backup vai para a raiz do Drive autorizado.
+    const folderName = folderId ? await validateDriveFolder(folderId) : "Raiz do Google Drive";
 
-    const serviceAccount = parseGoogleServiceAccount();
-
-    // 1) Autenticar e validar acesso à pasta antes de exportar dados
-    const accessToken = await getGoogleAccessToken(serviceAccount, [GOOGLE_DRIVE_BACKUP_SCOPE]);
-    const folderName = await validateDriveFolder(
-      accessToken,
-      folderId,
-      serviceAccount.client_email,
-    );
 
     // 2) Exportar base de dados
     const jsonDump = await exportDatabase();
@@ -538,22 +377,17 @@ Deno.serve(async (req: Request) => {
     const fileName = `cyberdossier-backup-${timestamp}.json`;
 
     // 3) Upload
-    const fileId = await uploadToDrive(
-      accessToken,
-      folderId,
-      fileName,
-      jsonDump,
-    );
+    const fileId = await uploadToDrive(folderId, fileName, jsonDump);
 
     // 4) Limpeza de backups antigos
     const retentionWeeks = settings.retention_weeks ?? 12;
     const cutoff = new Date(Date.now() - retentionWeeks * 7 * 24 * 60 * 60 * 1000);
     let deletedCount = 0;
     try {
-      const files = await listDriveFiles(accessToken, folderId);
+      const files = await listDriveFiles(folderId);
       for (const file of files) {
         if (file.name.startsWith("cyberdossier-backup-") && new Date(file.createdTime) < cutoff) {
-          await deleteDriveFile(accessToken, file.id);
+          await deleteDriveFile(file.id);
           deletedCount++;
         }
       }
