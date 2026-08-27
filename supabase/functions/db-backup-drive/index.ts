@@ -362,14 +362,9 @@ Deno.serve(async (req: Request) => {
 
     const folderId = typeof settings.drive_folder_id === "string" ? settings.drive_folder_id.trim() : "";
 
-    if (!folderId) {
-      const errMsg = "ID da pasta do Google Drive não configurado.";
-      await updateBackupError(admin, settings, errMsg);
-      return jsonResponse({ error: errMsg }, 400);
-    }
+    // Pasta é opcional: sem pasta, o backup vai para a raiz do Drive autorizado.
+    const folderName = folderId ? await validateDriveFolder(folderId) : "Raiz do Google Drive";
 
-    // 1) Validar acesso à pasta antes de exportar dados
-    const folderName = await validateDriveFolder(folderId);
 
     // 2) Exportar base de dados
     const jsonDump = await exportDatabase();
