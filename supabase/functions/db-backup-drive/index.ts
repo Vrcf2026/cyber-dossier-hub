@@ -372,15 +372,8 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: errMsg }, 400);
     }
 
-    const serviceAccount = parseGoogleServiceAccount();
-
-    // 1) Autenticar e validar acesso à pasta antes de exportar dados
-    const accessToken = await getGoogleAccessToken(serviceAccount, [GOOGLE_DRIVE_BACKUP_SCOPE]);
-    const folderName = await validateDriveFolder(
-      accessToken,
-      folderId,
-      serviceAccount.client_email,
-    );
+    // 1) Validar acesso à pasta antes de exportar dados
+    const folderName = await validateDriveFolder(folderId);
 
     // 2) Exportar base de dados
     const jsonDump = await exportDatabase();
@@ -388,22 +381,17 @@ Deno.serve(async (req: Request) => {
     const fileName = `cyberdossier-backup-${timestamp}.json`;
 
     // 3) Upload
-    const fileId = await uploadToDrive(
-      accessToken,
-      folderId,
-      fileName,
-      jsonDump,
-    );
+    const fileId = await uploadToDrive(folderId, fileName, jsonDump);
 
     // 4) Limpeza de backups antigos
     const retentionWeeks = settings.retention_weeks ?? 12;
     const cutoff = new Date(Date.now() - retentionWeeks * 7 * 24 * 60 * 60 * 1000);
     let deletedCount = 0;
     try {
-      const files = await listDriveFiles(accessToken, folderId);
+      const files = await listDriveFiles(folderId);
       for (const file of files) {
         if (file.name.startsWith("cyberdossier-backup-") && new Date(file.createdTime) < cutoff) {
-          await deleteDriveFile(accessToken, file.id);
+          await deleteDriveFile(file.id);
           deletedCount++;
         }
       }
