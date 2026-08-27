@@ -59,10 +59,6 @@ class BackupError extends Error {
   }
 }
 
-type GoogleServiceAccount = {
-  client_email: string;
-  private_key: string;
-};
 
 type BackupSettingsRow = {
   id: string;
