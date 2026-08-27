@@ -16,8 +16,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
-const GOOGLE_SERVICE_ACCOUNT_JSON = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON");
-const GOOGLE_DRIVE_BACKUP_SCOPE = "https://www.googleapis.com/auth/drive";
+const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_drive";
+
 
 // Tabelas a exportar (ordem importa para restauro — pais antes de filhos)
 const TABLES_TO_BACKUP = [
