@@ -245,7 +245,7 @@ async function validateDriveFolder(
   folderId: string,
   serviceAccountEmail: string,
 ): Promise<string> {
-  const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?fields=id,name,mimeType,capabilities/canAddChildren&supportsAllDrives=true`;
+  const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?fields=id,name,mimeType,driveId,capabilities/canAddChildren&supportsAllDrives=true`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -292,6 +292,14 @@ async function validateDriveFolder(
     );
   }
 
+  if (!folder.driveId) {
+    throw new BackupError(
+      "A pasta configurada pertence ao «O meu disco» e a Service Account não tem quota de armazenamento própria.",
+      400,
+      "Cria um Drive partilhado no Google Workspace, adiciona a Service Account como Gestor de conteúdo e configura aqui uma pasta desse Drive partilhado.",
+    );
+  }
+
   return folder.name ?? folderId;
 }
 
@@ -331,6 +339,14 @@ async function uploadToDrive(
     }
 
     if (startRes.status === 403) {
+      if (googleMessage.includes("Service Accounts do not have storage quota") || googleMessage.includes("storageQuotaExceeded")) {
+        throw new BackupError(
+          "A pasta pertence ao «O meu disco» e a Service Account não tem quota de armazenamento própria.",
+          400,
+          "Usa uma pasta num Drive partilhado do Google Workspace e adiciona a Service Account como Gestor de conteúdo.",
+        );
+      }
+
       throw new BackupError(
         "A Service Account não tem permissão para criar ficheiros nesta pasta do Google Drive.",
         400,
@@ -361,6 +377,18 @@ async function uploadToDrive(
 
   if (!uploadRes.ok) {
     const errText = await uploadRes.text();
+    const googleMessage = getGoogleErrorMessage(errText);
+    if (
+      uploadRes.status === 403 &&
+      (googleMessage.includes("Service Accounts do not have storage quota") ||
+        googleMessage.includes("storageQuotaExceeded"))
+    ) {
+      throw new BackupError(
+        "A pasta pertence ao «O meu disco» e a Service Account não tem quota de armazenamento própria.",
+        400,
+        "Usa uma pasta num Drive partilhado do Google Workspace e adiciona a Service Account como Gestor de conteúdo.",
+      );
+    }
     throw new BackupError(
       "Erro ao enviar o ficheiro para o Google Drive.",
       400,
@@ -378,7 +406,7 @@ async function listDriveFiles(
   folderId: string,
 ): Promise<{ id: string; name: string; createdTime: string }[]> {
   const query = `'${folderId}' in parents and trashed = false and name contains 'cyberdossier-backup-'`;
-  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,createdTime)&orderBy=createdTime&supportsAllDrives=true&pageSize=200`;
+  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,createdTime)&orderBy=createdTime&supportsAllDrives=true&includeItemsFromAllDrives=true&pageSize=200`;
 
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },

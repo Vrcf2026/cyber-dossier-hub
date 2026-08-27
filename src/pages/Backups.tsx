@@ -291,7 +291,7 @@ export default function Backups() {
               placeholder="ID ou URL da pasta do Google Drive"
             />
             <p className="text-xs text-muted-foreground">
-              Podes colar o URL completo da pasta. A pasta tem de estar partilhada com o email da Service Account com permissão de Editor.
+              Podes colar o URL completo. A pasta tem de estar num Drive partilhado do Google Workspace; pastas em “O meu disco” não funcionam com Service Accounts.
             </p>
           </div>
 
@@ -327,7 +327,7 @@ export default function Backups() {
       {/* Guia de configuração */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Como configurar a Service Account do Google</CardTitle>
+          <CardTitle className="text-base">Como configurar o Google Drive</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
           <p>Para que os backups automáticos funcionem, é necessário configurar uma Service Account do Google Cloud:</p>
@@ -337,7 +337,9 @@ export default function Backups() {
             <li>Vai a <strong>IAM &amp; Admin → Service Accounts</strong> e cria uma nova Service Account.</li>
             <li>Gera uma chave JSON e <strong>envia-a para o Lovable</strong> para ser guardada como secret <code className="text-xs bg-muted px-1 rounded">GOOGLE_SERVICE_ACCOUNT_JSON</code>.</li>
             <li>Copia o email da Service Account (ex.: <code className="text-xs bg-muted px-1 rounded">backup@projeto.iam.gserviceaccount.com</code>).</li>
-            <li>Cria uma pasta no Google Drive e <strong>partilha-a</strong> com esse email (permissão de Editor).</li>
+            <li>No Google Workspace, cria ou abre um <strong>Drive partilhado</strong> (não uses uma pasta em “O meu disco”).</li>
+            <li>Adiciona a Service Account como membro do Drive partilhado com o papel <strong>Gestor de conteúdo</strong>.</li>
+            <li>Cria dentro desse Drive partilhado a pasta destinada aos backups.</li>
             <li>Copia o URL completo da pasta ou apenas o ID do URL e cola-o no campo acima.</li>
           </ol>
         </CardContent>
