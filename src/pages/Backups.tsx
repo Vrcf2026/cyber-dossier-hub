@@ -283,7 +283,7 @@ export default function Backups() {
 
           {/* Pasta do Drive */}
           <div className="space-y-2">
-            <Label htmlFor="folder">ID da pasta do Google Drive</Label>
+            <Label htmlFor="folder">Pasta do Google Drive (opcional)</Label>
             <Input
               id="folder"
               value={driveFolderId}
@@ -291,8 +291,9 @@ export default function Backups() {
               placeholder="ID ou URL da pasta do Google Drive"
             />
             <p className="text-xs text-muted-foreground">
-              Podes colar o URL completo. A pasta tem de estar num Drive partilhado do Google Workspace; pastas em “O meu disco” não funcionam com Service Accounts.
+              Podes colar o URL completo. Se deixares vazio, o backup é guardado na raiz da conta Google ligada.
             </p>
+
           </div>
 
           {/* Retenção */}
