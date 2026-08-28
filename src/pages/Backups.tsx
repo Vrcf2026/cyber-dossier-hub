@@ -124,14 +124,8 @@ export default function Backups() {
 
   const handleRunNow = async () => {
     const normalizedFolderId = normalizeDriveFolderId(driveFolderId);
-    if (!normalizedFolderId) {
-      toast({
-        title: "Falta o ID da pasta do Google Drive",
-        description: "Cola o ID ou o URL da pasta, guarda a configuração e volta a executar o backup.",
-        variant: "destructive",
-      });
-      return;
-    }
+
+
 
     setRunning(true);
     try {
