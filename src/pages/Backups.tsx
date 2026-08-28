@@ -124,14 +124,8 @@ export default function Backups() {
 
   const handleRunNow = async () => {
     const normalizedFolderId = normalizeDriveFolderId(driveFolderId);
-    if (!normalizedFolderId) {
-      toast({
-        title: "Falta o ID da pasta do Google Drive",
-        description: "Cola o ID ou o URL da pasta, guarda a configuração e volta a executar o backup.",
-        variant: "destructive",
-      });
-      return;
-    }
+
+
 
     setRunning(true);
     try {
@@ -242,9 +236,10 @@ export default function Backups() {
           )}
           {!driveFolderId.trim() && (
             <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-              Antes de executar, indica a pasta do Google Drive na configuração abaixo.
+              Sem pasta definida, o backup é guardado na raiz da conta Google ligada.
             </div>
           )}
+
           <Button onClick={handleRunNow} disabled={running || saving} variant="outline" className="w-full">
             {running ? (
               <>
@@ -283,7 +278,7 @@ export default function Backups() {
 
           {/* Pasta do Drive */}
           <div className="space-y-2">
-            <Label htmlFor="folder">ID da pasta do Google Drive</Label>
+            <Label htmlFor="folder">Pasta do Google Drive (opcional)</Label>
             <Input
               id="folder"
               value={driveFolderId}
@@ -291,8 +286,9 @@ export default function Backups() {
               placeholder="ID ou URL da pasta do Google Drive"
             />
             <p className="text-xs text-muted-foreground">
-              Podes colar o URL completo. A pasta tem de estar num Drive partilhado do Google Workspace; pastas em “O meu disco” não funcionam com Service Accounts.
+              Podes colar o URL completo. Se deixares vazio, o backup é guardado na raiz da conta Google ligada.
             </p>
+
           </div>
 
           {/* Retenção */}
@@ -330,19 +326,16 @@ export default function Backups() {
           <CardTitle className="text-base">Como configurar o Google Drive</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>Para que os backups automáticos funcionem, é necessário configurar uma Service Account do Google Cloud:</p>
+          <p>Os backups usam a <strong>ligação directa à tua conta Google Drive</strong> (autorização OAuth feita no Lovable). Não é necessária qualquer Service Account nem chave JSON.</p>
           <ol className="list-decimal list-inside space-y-1 ml-2">
-            <li>Acede ao <strong>Google Cloud Console</strong> e cria um projeto (ou usa um existente).</li>
-            <li>Ativa a <strong>Google Drive API</strong> no projeto.</li>
-            <li>Vai a <strong>IAM &amp; Admin → Service Accounts</strong> e cria uma nova Service Account.</li>
-            <li>Gera uma chave JSON e <strong>envia-a para o Lovable</strong> para ser guardada como secret <code className="text-xs bg-muted px-1 rounded">GOOGLE_SERVICE_ACCOUNT_JSON</code>.</li>
-            <li>Copia o email da Service Account (ex.: <code className="text-xs bg-muted px-1 rounded">backup@projeto.iam.gserviceaccount.com</code>).</li>
-            <li>No Google Workspace, cria ou abre um <strong>Drive partilhado</strong> (não uses uma pasta em “O meu disco”).</li>
-            <li>Adiciona a Service Account como membro do Drive partilhado com o papel <strong>Gestor de conteúdo</strong>.</li>
-            <li>Cria dentro desse Drive partilhado a pasta destinada aos backups.</li>
-            <li>Copia o URL completo da pasta ou apenas o ID do URL e cola-o no campo acima.</li>
+            <li>Confirma que a ligação <strong>Google Drive</strong> está activa nos conectores do projeto.</li>
+            <li>Opcional: cria no teu Drive uma pasta para os backups.</li>
+            <li>Copia o URL completo da pasta (ou apenas o ID) e cola-o no campo acima.</li>
+            <li>Se deixares o campo vazio, os backups são guardados na raiz do teu Drive.</li>
+            <li>Guarda a configuração e clica em «Executar backup agora» para testar.</li>
           </ol>
         </CardContent>
+
       </Card>
     </div>
   );
