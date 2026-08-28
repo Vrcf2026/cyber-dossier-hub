@@ -242,9 +242,10 @@ export default function Backups() {
           )}
           {!driveFolderId.trim() && (
             <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
-              Antes de executar, indica a pasta do Google Drive na configuração abaixo.
+              Sem pasta definida, o backup é guardado na raiz da conta Google ligada.
             </div>
           )}
+
           <Button onClick={handleRunNow} disabled={running || saving} variant="outline" className="w-full">
             {running ? (
               <>
