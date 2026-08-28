@@ -176,6 +176,76 @@ async function validateDriveFolder(folderId: string): Promise<string> {
 
   return folder.name ?? folderId;
 }
+// --- Criar subpasta no Drive ---
+async function createDriveFolder(parentId: string, name: string): Promise<string> {
+  const res = await driveFetch("/drive/v3/files?supportsAllDrives=true&fields=id", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name,
+      mimeType: "application/vnd.google-apps.folder",
+      parents: parentId ? [parentId] : undefined,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new BackupError(
+      "Não foi possível criar a pasta do backup no Google Drive.",
+      400,
+      `Google Drive [${res.status}]: ${getGoogleErrorMessage(errText)}`,
+    );
+  }
+
+  const data = await res.json();
+  return data.id as string;
+}
+
+// --- Upload binário (ficheiros do Storage) ---
+async function uploadBinaryToDrive(
+  folderId: string,
+  fileName: string,
+  bytes: Uint8Array,
+  mimeType: string,
+): Promise<string> {
+  const boundary = `cyberdossier-bin-${crypto.randomUUID()}`;
+  const encoder = new TextEncoder();
+  const head = encoder.encode(
+    [
+      `--${boundary}`,
+      "Content-Type: application/json; charset=UTF-8",
+      "",
+      JSON.stringify({ name: fileName, parents: folderId ? [folderId] : undefined }),
+      `--${boundary}`,
+      `Content-Type: ${mimeType || "application/octet-stream"}`,
+      "",
+      "",
+    ].join("\r\n"),
+  );
+  const tail = encoder.encode(`\r\n--${boundary}--\r\n`);
+  const body = new Uint8Array(head.length + bytes.length + tail.length);
+  body.set(head, 0);
+  body.set(bytes, head.length);
+  body.set(tail, head.length + bytes.length);
+
+  const res = await driveFetch(
+    "/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true&fields=id",
+    {
+      method: "POST",
+      headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+      body,
+    },
+  );
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Google Drive [${res.status}]: ${getGoogleErrorMessage(errText)}`);
+  }
+
+  const data = await res.json();
+  return data.id as string;
+}
+
 
 // --- Upload para Google Drive (multipart, via gateway) ---
 async function uploadToDrive(
