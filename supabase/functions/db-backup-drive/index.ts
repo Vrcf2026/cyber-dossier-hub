@@ -557,13 +557,42 @@ Deno.serve(async (req: Request) => {
     const folderName = folderId ? await validateDriveFolder(folderId) : "Raiz do Google Drive";
 
 
-    // 2) Exportar base de dados
+    // 2) Exportar base de dados (tabelas + utilizadores auth)
     const jsonDump = await exportDatabase();
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const fileName = `cyberdossier-backup-${timestamp}.json`;
+    const backupName = `cyberdossier-backup-${timestamp}`;
+    const fileName = `${backupName}.json`;
 
-    // 3) Upload
-    const fileId = await uploadToDrive(folderId, fileName, jsonDump);
+    // 3) Criar pasta do backup e enviar o dump da base de dados
+    const backupFolderId = await createDriveFolder(folderId, backupName);
+    const fileId = await uploadToDrive(backupFolderId, "database.json", jsonDump);
+
+    // 3b) Copiar ficheiros do Storage (anexos, logos, exportações)
+    const storage = await backupStorage(admin, backupFolderId);
+    if (storage.errors.length > 0) {
+      console.warn(`Avisos no backup do Storage: ${storage.errors.slice(0, 10).join(" | ")}`);
+    }
+
+    // 3c) Manifesto do backup
+    await uploadToDrive(
+      backupFolderId,
+      "manifest.json",
+      JSON.stringify(
+        {
+          backup: backupName,
+          created_at: new Date().toISOString(),
+          database_tables: TABLES_TO_BACKUP.length,
+          auth_users_included: true,
+          storage_files: storage.files,
+          storage_bytes: storage.bytes,
+          storage_buckets: storage.buckets,
+          storage_errors: storage.errors,
+        },
+        null,
+        2,
+      ),
+    );
+
 
     // 4) Limpeza de backups antigos
     const retentionWeeks = settings.retention_weeks ?? 12;
