@@ -349,13 +349,126 @@ async function deleteDriveFile(fileId: string): Promise<void> {
 }
 
 
-// --- Exportar todas as tabelas ---
+// --- Exportar utilizadores de autenticação (sem passwords) ---
+async function exportAuthUsers(admin: ReturnType<typeof createClient>) {
+  const users: unknown[] = [];
+  let page = 1;
+
+  while (page <= 50) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    if (error) {
+      console.warn(`Aviso: não foi possível exportar utilizadores auth: ${error.message}`);
+      return { _error: error.message };
+    }
+    const batch = data?.users ?? [];
+    for (const u of batch) {
+      users.push({
+        id: u.id,
+        email: u.email,
+        phone: u.phone,
+        created_at: u.created_at,
+        last_sign_in_at: u.last_sign_in_at,
+        email_confirmed_at: u.email_confirmed_at,
+        app_metadata: u.app_metadata,
+        user_metadata: u.user_metadata,
+      });
+    }
+    if (batch.length < 200) break;
+    page++;
+  }
+
+  return users;
+}
+
+// --- Listar todos os objetos de um bucket (recursivo) ---
+async function listBucketObjects(
+  admin: ReturnType<typeof createClient>,
+  bucket: string,
+  prefix = "",
+): Promise<{ path: string; size: number; mimetype: string }[]> {
+  const out: { path: string; size: number; mimetype: string }[] = [];
+  const { data, error } = await admin.storage.from(bucket).list(prefix, { limit: 1000 });
+  if (error) {
+    console.warn(`Aviso: não foi possível listar ${bucket}/${prefix}: ${error.message}`);
+    return out;
+  }
+
+  for (const item of data ?? []) {
+    const path = prefix ? `${prefix}/${item.name}` : item.name;
+    if (item.id === null) {
+      out.push(...(await listBucketObjects(admin, bucket, path)));
+    } else {
+      out.push({
+        path,
+        size: (item as { metadata?: { size?: number } }).metadata?.size ?? 0,
+        mimetype: (item as { metadata?: { mimetype?: string } }).metadata?.mimetype ??
+          "application/octet-stream",
+      });
+    }
+  }
+
+  return out;
+}
+
+// --- Copiar ficheiros do Storage para o Drive ---
+async function backupStorage(
+  admin: ReturnType<typeof createClient>,
+  backupFolderId: string,
+): Promise<{ files: number; bytes: number; buckets: Record<string, number>; errors: string[] }> {
+  const result = { files: 0, bytes: 0, buckets: {} as Record<string, number>, errors: [] as string[] };
+  const { data: buckets, error } = await admin.storage.listBuckets();
+
+  if (error || !buckets) {
+    result.errors.push(`Não foi possível listar buckets: ${error?.message ?? "desconhecido"}`);
+    return result;
+  }
+
+  const storageRoot = await createDriveFolder(backupFolderId, "storage");
+
+  for (const bucket of buckets) {
+    const objects = await listBucketObjects(admin, bucket.name);
+    if (objects.length === 0) {
+      result.buckets[bucket.name] = 0;
+      continue;
+    }
+
+    const bucketFolder = await createDriveFolder(storageRoot, bucket.name);
+    let count = 0;
+
+    for (const obj of objects) {
+      try {
+        const { data: blob, error: dlError } = await admin.storage.from(bucket.name).download(obj.path);
+        if (dlError || !blob) {
+          result.errors.push(`${bucket.name}/${obj.path}: ${dlError?.message ?? "download falhou"}`);
+          continue;
+        }
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        // Caminho achatado para preservar a estrutura no nome do ficheiro
+        const safeName = obj.path.replace(/\//g, "__");
+        await uploadBinaryToDrive(bucketFolder, safeName, bytes, obj.mimetype);
+        result.files++;
+        result.bytes += bytes.length;
+        count++;
+      } catch (err) {
+        result.errors.push(`${bucket.name}/${obj.path}: ${String(err)}`);
+      }
+    }
+
+    result.buckets[bucket.name] = count;
+  }
+
+  return result;
+}
+
+// --- Exportar todas as tabelas + utilizadores auth ---
 async function exportDatabase(): Promise<string> {
   const admin = createAdminClient();
   const dump: Record<string, unknown> = {
     _meta: {
       exported_at: new Date().toISOString(),
       table_count: TABLES_TO_BACKUP.length,
+      includes_auth_users: true,
+      includes_storage_files: true,
     },
   };
 
@@ -384,8 +497,11 @@ async function exportDatabase(): Promise<string> {
     }
   }
 
+  dump.auth_users = await exportAuthUsers(admin);
+
   return JSON.stringify(dump, null, 2);
 }
+
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
