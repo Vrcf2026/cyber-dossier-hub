@@ -601,7 +601,11 @@ Deno.serve(async (req: Request) => {
     try {
       const files = await listDriveFiles(folderId);
       for (const file of files) {
-        if (file.name.startsWith("cyberdossier-backup-") && new Date(file.createdTime) < cutoff) {
+        if (
+          file.name.startsWith("cyberdossier-backup-") &&
+          file.id !== backupFolderId &&
+          new Date(file.createdTime) < cutoff
+        ) {
           await deleteDriveFile(file.id);
           deletedCount++;
         }
@@ -624,10 +628,16 @@ Deno.serve(async (req: Request) => {
       success: true,
       file_id: fileId,
       file_name: fileName,
+      backup_folder: backupName,
       folder_name: folderName,
       size_bytes: new TextEncoder().encode(jsonDump).length,
+      storage_files: storage.files,
+      storage_bytes: storage.bytes,
+      storage_buckets: storage.buckets,
+      storage_errors: storage.errors.slice(0, 20),
       old_backups_deleted: deletedCount,
     });
+
   } catch (err) {
     const errorMessage = err instanceof BackupError ? err.message : "Erro interno no backup.";
     const errorDetails = err instanceof BackupError ? err.details : String(err);
