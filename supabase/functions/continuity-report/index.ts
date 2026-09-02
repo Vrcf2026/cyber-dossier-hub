@@ -56,7 +56,7 @@ Deno.serve(async (req: Request) => {
     const [{ data: client }, { data: evidences }, { data: overdueTasks }] = await Promise.all([
       sb.from("clients").select("name, nif, sector, email, contact_person").eq("id", clientId).single(),
       sb.from("client_evidences")
-        .select("*, profiles(full_name)")
+        .select("*")
         .eq("client_id", clientId)
         .gte("evidence_date", periodStart)
         .lte("evidence_date", periodEnd)

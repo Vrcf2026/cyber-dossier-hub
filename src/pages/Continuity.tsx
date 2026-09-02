@@ -93,6 +93,9 @@ export default function Continuity() {
   });
   const [reportEnd, setReportEnd] = useState(() => new Date().toISOString().split("T")[0]);
   const [generating, setGenerating] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [recipientName, setRecipientName] = useState("");
 
   useEffect(() => {
     if (!clientId) return;
@@ -106,6 +109,8 @@ export default function Continuity() {
       setEvidences(ev.data ?? []);
       setTasks(tk.data ?? []);
       setDossiers(dos.data ?? []);
+      setRecipientEmail(c.data?.email ?? "");
+      setRecipientName(c.data?.contact_person ?? "");
       setLoading(false);
     });
   }, [clientId]);
@@ -150,7 +155,7 @@ export default function Continuity() {
       const matchingTask = tasks.find(t => t.evidence_type === evType);
       if (matchingTask) {
         const { data: nextDue } = await supabase.rpc("next_due_from_frequency", {
-          base_date: evDate, freq: taskFreq || matchingTask.frequency,
+          base_date: evDate, freq: matchingTask.frequency, // usa a frequência da tarefa, não do form
         });
         await supabase.from("client_tasks").update({ last_done: evDate, next_due: nextDue }).eq("id", matchingTask.id);
       }
@@ -371,7 +376,7 @@ export default function Continuity() {
             <CardHeader><CardTitle>Relatório de Continuidade</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Gera um PDF com todas as evidências do período, tarefas em atraso, e um resumo executivo escrito por IA — pronto a enviar ao cliente.
+                Gera um PDF com todas as evidências do período e resumo executivo por IA. Podes descarregar ou enviar directamente ao cliente por email.
               </p>
               <div className="flex items-end gap-3 flex-wrap">
                 <div className="space-y-1">
@@ -382,10 +387,48 @@ export default function Continuity() {
                   <Label>Data fim</Label>
                   <Input type="date" value={reportEnd} onChange={e => setReportEnd(e.target.value)} className="w-40" />
                 </div>
-                <Button onClick={generateReport} disabled={generating}>
+                <Button onClick={generateReport} disabled={generating || sendingEmail} variant="outline">
                   <Download className="h-4 w-4 mr-2" />
-                  {generating ? "A gerar..." : "Gerar PDF"}
+                  {generating ? "A gerar..." : "Descarregar PDF"}
                 </Button>
+              </div>
+              <div className="border-t pt-4 space-y-3">
+                <p className="text-sm font-medium">Enviar por email ao cliente</p>
+                <div className="flex items-end gap-3 flex-wrap">
+                  <div className="space-y-1">
+                    <Label>Email do destinatário</Label>
+                    <Input type="email" value={recipientEmail} onChange={e => setRecipientEmail(e.target.value)} placeholder="email@cliente.pt" className="w-56" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Nome (opcional)</Label>
+                    <Input value={recipientName} onChange={e => setRecipientName(e.target.value)} placeholder="Dr. João Silva" className="w-44" />
+                  </div>
+                  <Button
+                    disabled={generating || sendingEmail || !recipientEmail}
+                    onClick={async () => {
+                      if (!recipientEmail) { toast.error("Introduz o email do destinatário."); return; }
+                      setSendingEmail(true);
+                      try {
+                        const { data: session } = await supabase.auth.getSession();
+                        const token = session.session?.access_token;
+                        const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-monthly-report`, {
+                          method: "POST",
+                          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+                          body: JSON.stringify({ clientId, periodStart: reportStart, periodEnd: reportEnd, recipientEmail, recipientName }),
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error);
+                        toast.success(`Relatório enviado para ${recipientEmail}`);
+                      } catch (e: any) {
+                        toast.error(e.message || "Erro ao enviar.");
+                      } finally {
+                        setSendingEmail(false);
+                      }
+                    }}
+                  >
+                    {sendingEmail ? "A enviar..." : "Enviar por email"}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>

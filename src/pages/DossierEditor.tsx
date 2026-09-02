@@ -232,6 +232,7 @@ export default function DossierEditor() {
         ai_generated_content: contentDraft,
         data: { notes: notesDraft },
         is_completed: markCompleted,
+        section_status: markCompleted ? "completed" : "in_progress",
       })
       .eq("id", section.id);
     setSaving(false);
