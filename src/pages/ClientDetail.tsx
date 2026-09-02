@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ShieldAlert, AlertTriangle } from "lucide-react";
+import { ArrowLeft, ShieldAlert, AlertTriangle, ClipboardCheck, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -25,6 +25,9 @@ export default function ClientDetail() {
   const { user, isAdmin } = useAuth();
   const [client, setClient] = useState<any>(null);
   const [dossiers, setDossiers] = useState<any[]>([]);
+  const [overdueTasks, setOverdueTasks] = useState(0);
+  const [lastBackup, setLastBackup] = useState<string | null>(null);
+  const [lastRestore, setLastRestore] = useState<string | null>(null);
   const [offboardOpen, setOffboardOpen] = useState(false);
   const [confirmName, setConfirmName] = useState("");
   const [password, setPassword] = useState("");
@@ -34,6 +37,15 @@ export default function ClientDetail() {
     if (!id) return;
     supabase.from("clients").select("*").eq("id", id).single().then(({ data }) => setClient(data));
     supabase.from("dossiers").select("*").eq("client_id", id).order("created_at", { ascending: false }).then(({ data }) => setDossiers(data ?? []));
+    const today = new Date().toISOString().split("T")[0];
+    supabase.from("client_tasks").select("id").eq("client_id", id).eq("active", true).lt("next_due", today)
+      .then(({ data }) => setOverdueTasks(data?.length ?? 0));
+    supabase.from("client_evidences").select("evidence_date").eq("client_id", id).eq("evidence_type", "backup_check")
+      .order("evidence_date", { ascending: false }).limit(1)
+      .then(({ data }) => setLastBackup(data?.[0]?.evidence_date ?? null));
+    supabase.from("client_evidences").select("evidence_date").eq("client_id", id).eq("evidence_type", "restore_test")
+      .order("evidence_date", { ascending: false }).limit(1)
+      .then(({ data }) => setLastRestore(data?.[0]?.evidence_date ?? null));
   }, [id]);
 
   if (!client) return <p className="text-muted-foreground">A carregar...</p>;
@@ -106,18 +118,63 @@ export default function ClientDetail() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{client.name}</CardTitle>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={() => navigate(`/clientes/${id}/continuidade`)}>
+              <ClipboardCheck className="h-4 w-4 mr-2" /> Continuidade
+            </Button>
             <Button variant="outline" size="sm" onClick={() => navigate(`/clientes/${id}/phishing`)}>
-              <ShieldAlert className="h-4 w-4 mr-2" /> Teste de Phishing
+              <ShieldAlert className="h-4 w-4 mr-2" /> Phishing
             </Button>
             {isAdmin && (
               <Button variant="destructive" size="sm" onClick={() => setOffboardOpen(true)}>
-                <AlertTriangle className="h-4 w-4 mr-2" /> Encerrar Cliente
+                <AlertTriangle className="h-4 w-4 mr-2" /> Encerrar
               </Button>
             )}
           </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-4 text-sm">
+        <CardContent className="space-y-4">
+          {/* Semáforos de continuidade */}
+          <div className="grid grid-cols-3 gap-3 pb-2 border-b">
+            {(() => {
+              const today = new Date();
+              const daysSinceBackup = lastBackup ? Math.floor((today.getTime() - new Date(lastBackup).getTime()) / 864e5) : null;
+              const daysSinceRestore = lastRestore ? Math.floor((today.getTime() - new Date(lastRestore).getTime()) / 864e5) : null;
+              const backupOk = daysSinceBackup !== null && daysSinceBackup <= 7;
+              const backupWarn = daysSinceBackup !== null && daysSinceBackup <= 14;
+              const restoreOk = daysSinceRestore !== null && daysSinceRestore <= 90;
+              const restoreWarn = daysSinceRestore !== null && daysSinceRestore <= 180;
+              return [
+                {
+                  label: "Último backup",
+                  value: lastBackup ? `${daysSinceBackup}d atrás` : "Nunca registado",
+                  icon: backupOk ? CheckCircle2 : daysSinceBackup !== null && daysSinceBackup <= 14 ? Clock : XCircle,
+                  color: backupOk ? "text-green-600" : backupWarn ? "text-amber-600" : "text-red-600",
+                },
+                {
+                  label: "Último restauro",
+                  value: lastRestore ? `${daysSinceRestore}d atrás` : "Nunca realizado",
+                  icon: restoreOk ? CheckCircle2 : restoreWarn ? Clock : XCircle,
+                  color: restoreOk ? "text-green-600" : restoreWarn ? "text-amber-600" : "text-red-600",
+                },
+                {
+                  label: "Tarefas em atraso",
+                  value: overdueTasks === 0 ? "Nenhuma" : `${overdueTasks} em atraso`,
+                  icon: overdueTasks === 0 ? CheckCircle2 : AlertTriangle,
+                  color: overdueTasks === 0 ? "text-green-600" : "text-red-600",
+                },
+              ].map(s => {
+                const Icon = s.icon;
+                return (
+                  <div key={s.label} className="text-center cursor-pointer" onClick={() => navigate(`/clientes/${id}/continuidade`)}>
+                    <Icon className={`h-5 w-5 mx-auto ${s.color}`} />
+                    <p className={`text-xs font-medium mt-1 ${s.color}`}>{s.value}</p>
+                    <p className="text-xs text-muted-foreground">{s.label}</p>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+          <div className="grid grid-cols-2 gap-4 text-sm">
           {client.nif && <div><span className="text-muted-foreground">NIF:</span> {client.nif}</div>}
           {client.sector && <div><span className="text-muted-foreground">Setor:</span> {client.sector}</div>}
           {client.email && <div><span className="text-muted-foreground">Email:</span> {client.email}</div>}
@@ -137,6 +194,7 @@ export default function ClientDetail() {
           )}
           {client.contact_person && <div><span className="text-muted-foreground">Contacto:</span> {client.contact_person}</div>}
           {client.num_employees && <div><span className="text-muted-foreground">Colaboradores:</span> {client.num_employees}</div>}
+          </div>
         </CardContent>
       </Card>
 

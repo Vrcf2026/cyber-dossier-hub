@@ -21,6 +21,8 @@ import Users from "./pages/Users";
 import Portal from "./pages/Portal";
 import AuditLog from "./pages/AuditLog";
 import Backups from "./pages/Backups";
+import Continuity from "./pages/Continuity";
+import ContinuityOverview from "./pages/ContinuityOverview";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -96,6 +98,8 @@ const App = () => (
               <Route path="/clientes" element={<StaffRoute><Clients /></StaffRoute>} />
               <Route path="/clientes/:id" element={<StaffRoute><ClientDetail /></StaffRoute>} />
               <Route path="/clientes/:id/phishing" element={<StaffRoute><PhishingTest /></StaffRoute>} />
+              <Route path="/clientes/:id/continuidade" element={<StaffRoute><Continuity /></StaffRoute>} />
+              <Route path="/continuidade" element={<StaffRoute><ContinuityOverview /></StaffRoute>} />
               <Route path="/dossiers" element={<StaffRoute><Dossiers /></StaffRoute>} />
               <Route path="/dossiers/:id" element={<StaffRoute><DossierEditor /></StaffRoute>} />
               <Route path="/dossiers/:id/intake" element={<StaffRoute><DossierIntake /></StaffRoute>} />

@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Lock, Sparkles, Download, History, RotateCcw, ShieldCheck, AlertTriangle, AlertCircle, RefreshCw, MessageSquare } from "lucide-react";
+import { ArrowLeft, Lock, Sparkles, Download, History, RotateCcw, ShieldCheck, AlertTriangle, AlertCircle, RefreshCw, MessageSquare, HelpCircle } from "lucide-react";
+import { SectionGuide } from "@/components/SectionGuide";
 
 interface AuditSection { number: number; name: string; status: "ok"|"incomplete"|"empty"; issues: string[] }
 interface AuditResult { sections: AuditSection[]; cross_issues: string[]; critical_missing: string[]; overall_score: number }
@@ -42,6 +43,7 @@ export default function DossierEditor() {
   const [audit, setAudit] = useState<AuditResult | null>(null);
   const [auditing, setAuditing] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -274,10 +276,21 @@ export default function DossierEditor() {
             </div>
             {activeDef && <p className="text-sm text-muted-foreground mt-1">{activeDef.helpText}</p>}
           </div>
-          <Button variant="ghost" size="sm" onClick={toggleHistory}>
-            <History className="h-4 w-4 mr-2" /> Histórico
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setGuideOpen(true)} title="Ver guia desta secção">
+              <HelpCircle className="h-4 w-4 mr-1" /> Guia
+            </Button>
+            <Button variant="ghost" size="sm" onClick={toggleHistory}>
+              <History className="h-4 w-4 mr-2" /> Histórico
+            </Button>
+          </div>
         </div>
+
+        <SectionGuide
+          sectionNumber={activeSection?.section_number ?? null}
+          open={guideOpen}
+          onClose={() => setGuideOpen(false)}
+        />
 
         {showHistory && (
           <div className="border rounded-lg p-3 bg-muted/30 space-y-2 max-h-64 overflow-y-auto">

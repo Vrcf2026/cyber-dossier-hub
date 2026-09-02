@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FolderOpen, Building2, LogOut, Sun, Moon, ShieldCheck, FileText, ScrollText, HardDrive } from "lucide-react";
+import { LayoutDashboard, Users, FolderOpen, Building2, LogOut, Sun, Moon, ShieldCheck, FileText, ScrollText, HardDrive, ClipboardCheck } from "lucide-react";
 import { forwardRef } from "react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -22,6 +22,7 @@ const staffItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, end: true },
   { title: "Clientes", url: "/clientes", icon: Users },
   { title: "Dossiers", url: "/dossiers", icon: FolderOpen },
+  { title: "Continuidade", url: "/continuidade", icon: ClipboardCheck },
 ];
 
 const adminItems = [
