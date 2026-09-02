@@ -346,10 +346,28 @@ export default function DossierEditor() {
             )}
           </div>
 
-          <Button onClick={handleGenerate} disabled={generating} variant="secondary" size="sm">
-            <Sparkles className="h-4 w-4 mr-2" />
-            {generating ? "A estruturar..." : "Estruturar com IA"}
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button onClick={handleGenerate} disabled={generating} variant="secondary" size="sm">
+              <Sparkles className="h-4 w-4 mr-2" />
+              {generating ? "A estruturar..." : "Estruturar com IA"}
+            </Button>
+            <Button
+              variant="outline" size="sm"
+              className={activeSection?.section_status === "not_applicable" ? "border-gray-400 text-gray-500" : ""}
+              onClick={async () => {
+                const isNA = activeSection?.section_status === "not_applicable";
+                await supabase.from("dossier_sections").update({
+                  section_status: isNA ? "pending" : "not_applicable",
+                  is_completed: false,
+                }).eq("id", activeSectionId!);
+                fetchDossier();
+                toast.info(isNA ? "Secção reativada." : "Secção marcada como Não Aplicável.");
+              }}
+              title="Marcar como Não Aplicável — a auditoria não irá penalizar esta secção"
+            >
+              {activeSection?.section_status === "not_applicable" ? "Reverter N/A" : "N/A"}
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -539,15 +557,20 @@ export default function DossierEditor() {
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0 ml-2">
-                {/* Semáforo do audit */}
-                {auditS && (
-                  <span title={auditS.issues?.join(" | ")} className={`w-2.5 h-2.5 rounded-full ${
-                    auditS.status === "ok" ? "bg-green-500" :
-                    auditS.status === "incomplete" ? "bg-amber-400" : "bg-red-400"
-                  }`} />
-                )}
-                {section.is_completed && (
-                  <Badge variant="outline" className="text-green-600 border-green-500/30 text-xs">✓ Concluída</Badge>
+                {section.section_status === "not_applicable" ? (
+                  <Badge variant="outline" className="text-gray-400 border-gray-300 text-xs">N/A</Badge>
+                ) : (
+                  <>
+                    {auditS && (
+                      <span title={auditS.issues?.join(" | ")} className={`w-2.5 h-2.5 rounded-full ${
+                        auditS.status === "ok" ? "bg-green-500" :
+                        auditS.status === "incomplete" ? "bg-amber-400" : "bg-red-400"
+                      }`} />
+                    )}
+                    {section.is_completed && (
+                      <Badge variant="outline" className="text-green-600 border-green-500/30 text-xs">✓ Concluída</Badge>
+                    )}
+                  </>
                 )}
               </div>
             </div>

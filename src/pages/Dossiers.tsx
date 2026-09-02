@@ -55,11 +55,11 @@ export default function Dossiers() {
     // As 15 secções corretas são criadas automaticamente pelo trigger
     // seed_dossier_sections() da base de dados — não inserir aqui.
 
-    toast.success("Dossier criado.");
+    toast.success("Dossier criado. Vamos começar o intake de informação.");
     setOpen(false);
     setNewTitle("");
     setNewClientId("");
-    navigate(`/dossiers/${data.id}`);
+    navigate(`/dossiers/${data.id}/intake`);
   };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
@@ -154,6 +154,9 @@ export default function Dossiers() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    {!d.intake_completed && (
+                      <Badge variant="outline" className="text-amber-600 border-amber-400 text-xs">Intake pendente</Badge>
+                    )}
                     <Badge variant={cfg.variant}>{cfg.label}</Badge>
                     {isAdmin && (
                       <Button variant="ghost" size="icon" onClick={(e) => handleDelete(d.id, e)}>

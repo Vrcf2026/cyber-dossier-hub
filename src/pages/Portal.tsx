@@ -23,15 +23,27 @@ export default function Portal() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
 
+  const [recentEvidences, setRecentEvidences] = useState<any[]>([]);
+
   useEffect(() => {
     supabase
       .from("dossiers")
-      .select("id, title, status, updated_at")
+      .select("id, title, status, updated_at, clients(id)")
       .order("updated_at", { ascending: false })
       .then(({ data }) => {
         setDossiers(data ?? []);
         setSelected(data?.[0]?.id ?? null);
         setLoading(false);
+        // Buscar evidências recentes do cliente (últimas 5)
+        const clientId = (data?.[0] as any)?.clients?.id;
+        if (clientId) {
+          supabase.from("client_evidences")
+            .select("evidence_type, result, title, evidence_date")
+            .eq("client_id", clientId)
+            .order("evidence_date", { ascending: false })
+            .limit(5)
+            .then(({ data: ev }) => setRecentEvidences(ev ?? []));
+        }
       });
   }, []);
 
@@ -141,6 +153,41 @@ export default function Portal() {
           </Accordion>
         </CardContent>
       </Card>
+
+      {recentEvidences.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Trabalho de manutenção recente</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {recentEvidences.map((ev, i) => {
+              const typeLabels: Record<string, string> = {
+                backup_check: "Verificação de Backup", restore_test: "Teste de Restauro",
+                patch_update: "Patches", log_review: "Revisão de Logs",
+                vuln_scan: "Scan de Vulnerabilidades", access_review: "Revisão de Acessos",
+                phishing_campaign: "Campanha de Phishing", ssl_renewal: "SSL",
+                dossier_review: "Revisão do Dossier", incident: "Incidente", other: "Outro",
+              };
+              const resultColors: Record<string, string> = {
+                ok: "text-green-600", warning: "text-amber-600", fail: "text-red-600", pending: "text-gray-400",
+              };
+              const resultLabels: Record<string, string> = { ok: "✓ OK", warning: "⚠ Alerta", fail: "✗ Falha", pending: "Pendente" };
+              return (
+                <div key={i} className="flex items-center justify-between text-sm py-1 border-b last:border-0">
+                  <div>
+                    <span className="font-medium">{ev.title}</span>
+                    <span className="text-muted-foreground ml-2">— {typeLabels[ev.evidence_type] ?? ev.evidence_type}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className={resultColors[ev.result] ?? ""}>{resultLabels[ev.result] ?? ev.result}</span>
+                    <span>{new Date(ev.evidence_date).toLocaleDateString("pt-PT")}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
