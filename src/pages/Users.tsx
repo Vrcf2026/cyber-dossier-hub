@@ -56,8 +56,8 @@ export default function Users() {
     try {
       const data: any = await call("list");
       setUsers(data.users ?? []);
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch {
+      toast.error("Não foi possível carregar os utilizadores.");
     }
     setLoading(false);
   };
@@ -71,18 +71,16 @@ export default function Users() {
   const handleCreate = async () => {
     try {
       await call("create", {
-        email: form.email,
-        password: form.password,
-        full_name: form.full_name,
-        role: form.role,
+        email: form.email, password: form.password,
+        full_name: form.full_name, role: form.role,
         client_id: form.role === "cliente" ? form.client_id : null,
       });
       toast.success("Utilizador criado.");
       setOpen(false);
       setForm({ email: "", password: "", full_name: "", role: "tecnico", client_id: "" });
       load();
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch {
+      toast.error("Não foi possível criar o utilizador. Verifica os dados e tenta novamente.");
     }
   };
 
@@ -90,8 +88,8 @@ export default function Users() {
     try {
       await call(action, payload);
       load();
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch {
+      toast.error("Operação falhou. Tenta novamente.");
     }
   };
 

@@ -98,7 +98,7 @@ export default function DossierIntake() {
       setMessages(prev => [...prev, { role: "assistant", content: data.reply }]);
       if (data.readyToFill) setReadyToFill(true);
     } catch (e: any) {
-      toast.error(e.message || "Erro ao contactar a IA.");
+      toast.error("Não foi possível contactar a IA. Tenta novamente.");
       setMessages(prev => prev.filter(m => m !== userMsg));
     } finally {
       setSending(false);
@@ -130,7 +130,7 @@ export default function DossierIntake() {
 
       setTimeout(() => navigate(`/dossiers/${id}`), 2500);
     } catch (e: any) {
-      toast.error(e.message || "Erro ao preencher o dossier.");
+      toast.error("Não foi possível preencher o dossier. Verifica a ligação e tenta novamente.");
     } finally {
       setFilling(false);
     }

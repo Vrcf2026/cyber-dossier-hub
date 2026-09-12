@@ -146,8 +146,16 @@ Deno.serve(async (req: Request) => {
       return jsonError("O nome escrito não corresponde ao nome do cliente.", 400);
     }
 
-    const { data: dossiers } = await supabaseClient
-      .from("dossiers").select("*").eq("client_id", clientId).order("created_at");
+    // Buscar TUDO de uma vez em paralelo — evita falhas a meio se houver muitos dossiers
+    const [{ data: dossiers }, { data: allSections }, { data: allCreds }, { data: allEvidences }] = await Promise.all([
+      supabaseClient.from("dossiers").select("*").eq("client_id", clientId).order("created_at"),
+      supabaseClient.from("dossier_sections").select("*")
+        .in("dossier_id", (await supabaseClient.from("dossiers").select("id").eq("client_id", clientId)).data?.map((d: any) => d.id) ?? [])
+        .order("section_number"),
+      supabaseClient.from("dossier_credentials").select("*")
+        .in("dossier_id", (await supabaseClient.from("dossiers").select("id").eq("client_id", clientId)).data?.map((d: any) => d.id) ?? []),
+      supabaseClient.from("client_evidences").select("*").eq("client_id", clientId).order("evidence_date"),
+    ]);
 
     // --- Construir o PDF ---
     const doc = new jsPDF({ unit: "pt", format: "a4" });
@@ -194,10 +202,10 @@ Deno.serve(async (req: Request) => {
       doc.setTextColor(0);
       y += 20;
 
-      const { data: sections } = await supabaseClient
-        .from("dossier_sections").select("*").eq("dossier_id", dossier.id).order("section_number");
+      const sections = (allSections ?? []).filter((s: any) => s.dossier_id === dossier.id);
+      const credsDoc = (allCreds ?? []).find((c: any) => c.dossier_id === dossier.id);
 
-      for (const s of sections ?? []) {
+      for (const s of sections) {
         if (y > doc.internal.pageSize.getHeight() - margin - 40) { doc.addPage(); y = margin; }
         doc.setFont("helvetica", "bold");
         doc.setFontSize(12);
@@ -216,11 +224,7 @@ Deno.serve(async (req: Request) => {
         y += 10;
       }
 
-      // Credenciais deste dossier — junto no arquivo interno (o PDF fica
-      // no bucket privado, não é isto que se entrega ao cliente).
-      const { data: creds } = await supabaseClient
-        .from("dossier_credentials").select("*").eq("dossier_id", dossier.id).maybeSingle();
-      const entries = (creds?.entries as any[]) ?? [];
+      const entries = (credsDoc?.entries as any[]) ?? [];
       if (entries.length > 0) {
         doc.addPage();
         y = margin;
@@ -240,6 +244,36 @@ Deno.serve(async (req: Request) => {
           theme: "grid",
         });
       }
+    } // fim do loop de dossiers
+
+    // Evidências de continuidade — incluir no arquivo
+    if (allEvidences && allEvidences.length > 0) {
+      doc.addPage();
+      let y = margin;
+      doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+      doc.text("Histórico de Manutenção e Continuidade", margin, y); y += 20;
+      const TYPE_LABELS: Record<string, string> = {
+        backup_check: "Verificação Backup", restore_test: "Teste Restauro",
+        patch_update: "Patches", log_review: "Revisão Logs",
+        vuln_scan: "Scan Vuln.", access_review: "Revisão Acessos",
+        phishing_campaign: "Phishing", ssl_renewal: "SSL",
+        dossier_review: "Revisão Dossier", incident: "Incidente", other: "Outro",
+      };
+      (doc as any).autoTable({
+        startY: y,
+        margin: { left: margin, right: margin },
+        head: [["Data", "Tipo", "Resultado", "Descrição", "Observações"]],
+        body: allEvidences.map((e: any) => [
+          e.evidence_date,
+          TYPE_LABELS[e.evidence_type] ?? e.evidence_type,
+          { ok: "OK", warning: "Alerta", fail: "Falha", pending: "Pendente" }[e.result as string] ?? e.result,
+          e.title,
+          e.notes ?? "",
+        ]),
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [51, 65, 85], textColor: 255 },
+        theme: "striped",
+      });
     }
 
     const pdfBytes = doc.output("arraybuffer");

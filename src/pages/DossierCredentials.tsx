@@ -108,20 +108,27 @@ export default function DossierCredentials() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {entries.map((entry, i) => (
-            <div key={i} className="grid grid-cols-5 gap-2 items-start p-3 border rounded-lg">
-              <Input placeholder="Sistema/Serviço" value={entry.sistema} onChange={(e) => updateEntry(i, "sistema", e.target.value)} />
-              <Input placeholder="IP / URL" value={entry.ip_url} onChange={(e) => updateEntry(i, "ip_url", e.target.value)} />
-              <Input placeholder="Utilizador" value={entry.utilizador} onChange={(e) => updateEntry(i, "utilizador", e.target.value)} />
-              <Input placeholder="Password" type="password" value={entry.password} onChange={(e) => updateEntry(i, "password", e.target.value)} />
-              <div className="flex gap-1">
-                <Input placeholder="Observações" value={entry.observacoes} onChange={(e) => updateEntry(i, "observacoes", e.target.value)} />
-                <Button variant="ghost" size="icon" onClick={() => removeEntry(i)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+          <div className="overflow-x-auto">
+            <div className="min-w-[600px] space-y-2">
+              {/* Cabeçalho */}
+              <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_auto] gap-2 px-3 text-xs text-muted-foreground font-medium">
+                <span>Sistema / Serviço</span><span>IP / URL</span><span>Utilizador</span>
+                <span>Password</span><span>Observações</span><span></span>
               </div>
+              {entries.map((entry, i) => (
+                <div key={i} className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_auto] gap-2 items-center p-3 border rounded-lg">
+                  <Input placeholder="Sistema/Serviço" value={entry.sistema} onChange={(e) => updateEntry(i, "sistema", e.target.value)} />
+                  <Input placeholder="IP / URL" value={entry.ip_url} onChange={(e) => updateEntry(i, "ip_url", e.target.value)} />
+                  <Input placeholder="Utilizador" value={entry.utilizador} onChange={(e) => updateEntry(i, "utilizador", e.target.value)} />
+                  <Input placeholder="Password" type="password" value={entry.password} onChange={(e) => updateEntry(i, "password", e.target.value)} />
+                  <Input placeholder="Observações" value={entry.observacoes} onChange={(e) => updateEntry(i, "observacoes", e.target.value)} />
+                  <Button variant="ghost" size="icon" onClick={() => removeEntry(i)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
 
           <Button variant="outline" onClick={addEntry}>
             <Plus className="h-4 w-4 mr-2" /> Adicionar linha

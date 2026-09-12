@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Plus, Search, Trash2 } from "lucide-react";
@@ -28,7 +28,9 @@ export default function Dossiers() {
   const [search, setSearch] = useState("");
   const [filterClient, setFilterClient] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [open, setOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newClientId, setNewClientId] = useState("");
 
@@ -47,25 +49,21 @@ export default function Dossiers() {
   const handleCreate = async () => {
     if (!newClientId || !newTitle.trim()) { toast.error("Cliente e título são obrigatórios."); return; }
     const { data, error } = await supabase.from("dossiers").insert({
-      client_id: newClientId,
-      title: newTitle,
-      created_by: user?.id,
+      client_id: newClientId, title: newTitle, created_by: user?.id,
     }).select().single();
     if (error) { toast.error("Erro ao criar dossier."); return; }
-    // As 15 secções corretas são criadas automaticamente pelo trigger
-    // seed_dossier_sections() da base de dados — não inserir aqui.
-
     toast.success("Dossier criado. Vamos começar o intake de informação.");
-    setOpen(false);
-    setNewTitle("");
-    setNewClientId("");
+    setCreateOpen(false);
+    setNewTitle(""); setNewClientId("");
     navigate(`/dossiers/${data.id}/intake`);
   };
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm("Tem a certeza que deseja apagar este dossier?")) return;
-    const { error } = await supabase.from("dossiers").delete().eq("id", id);
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const { error } = await supabase.from("dossiers").delete().eq("id", deleteTarget.id);
+    setDeleting(false);
+    setDeleteTarget(null);
     if (error) { toast.error("Erro ao apagar."); return; }
     toast.success("Dossier apagado.");
     fetchDossiers();
@@ -84,7 +82,7 @@ export default function Dossiers() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-foreground">Dossiers</h2>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
             <Button><Plus className="h-4 w-4 mr-2" /> Novo Dossier</Button>
           </DialogTrigger>
@@ -104,10 +102,10 @@ export default function Dossiers() {
                 <Label>Título *</Label>
                 <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Ex: Auditoria Q1 2026" />
               </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
-                <Button onClick={handleCreate}>Criar</Button>
-              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
+                <Button onClick={handleCreate}>Criar e iniciar intake</Button>
+              </DialogFooter>
             </div>
           </DialogContent>
         </Dialog>
@@ -159,7 +157,7 @@ export default function Dossiers() {
                     )}
                     <Badge variant={cfg.variant}>{cfg.label}</Badge>
                     {isAdmin && (
-                      <Button variant="ghost" size="icon" onClick={(e) => handleDelete(d.id, e)}>
+                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setDeleteTarget({ id: d.id, title: d.title }); }}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     )}
@@ -170,6 +168,24 @@ export default function Dossiers() {
           })
         )}
       </div>
+
+      {/* Dialog de confirmação de apagar */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Apagar dossier</DialogTitle>
+            <DialogDescription>
+              Tens a certeza que queres apagar <strong>"{deleteTarget?.title}"</strong>? Esta acção é irreversível — todas as secções e conteúdo serão eliminados permanentemente.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? "A apagar..." : "Apagar definitivamente"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
