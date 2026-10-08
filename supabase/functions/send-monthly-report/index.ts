@@ -19,7 +19,7 @@ const TYPE_LABELS: Record<string, string> = {
   backup_check: "Verificação de Backup", restore_test: "Teste de Restauro",
   patch_update: "Patches", log_review: "Revisão de Logs", vuln_scan: "Scan Vulnerabilidades",
   access_review: "Revisão de Acessos", phishing_campaign: "Phishing", ssl_renewal: "SSL",
-  dossier_review: "Revisão do Dossier", incident: "Incidente", other: "Outro",
+  dossier_review: "Revisão do Dossier", incident: "Incidente", physical_access_review: "Revisão de Acessos Físicos", media_disposal: "Destruição de Suportes", training_session: "Formação / Sensibilização", other: "Outro",
 };
 
 const RESULT_LABELS: Record<string, string> = { ok: "✓ OK", warning: "⚠ Alerta", fail: "✗ Falha", pending: "Pendente" };

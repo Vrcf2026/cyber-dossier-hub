@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Plus, Download, CheckCircle2, AlertTriangle, XCircle, Clock, Paperclip, X, CalendarClock, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import StaffTab from "@/components/StaffTab";
 
 const EVIDENCE_TYPES = [
   { value: "backup_check",      label: "Verificação de Backup" },
@@ -25,6 +26,9 @@ const EVIDENCE_TYPES = [
   { value: "ssl_renewal",       label: "Renovação SSL" },
   { value: "dossier_review",    label: "Revisão do Dossier" },
   { value: "incident",          label: "Incidente" },
+  { value: "physical_access_review", label: "Revisão de Acessos Físicos (chaves/alarme)" },
+  { value: "media_disposal",    label: "Destruição de Suportes (discos/papel)" },
+  { value: "training_session",  label: "Formação / Sensibilização" },
   { value: "other",             label: "Outro" },
 ];
 
@@ -193,6 +197,25 @@ export default function Continuity() {
     }
   };
 
+  // Cria o calendário mínimo recomendado (só os tipos que ainda não existem)
+  const [seeding, setSeeding] = useState(false);
+  const handleSeedDefaults = async () => {
+    if (!clientId) return;
+    setSeeding(true);
+    try {
+      const { data, error } = await supabase.rpc("seed_default_client_tasks", { p_client_id: clientId });
+      if (error) throw error;
+      const n = (data as number) ?? 0;
+      toast.success(n > 0 ? `${n} tarefa(s) recomendada(s) adicionada(s).` : "Este cliente já tem todas as tarefas recomendadas.");
+      const { data: tk } = await supabase.from("client_tasks").select("*").eq("client_id", clientId).eq("active", true).order("next_due");
+      setTasks(tk ?? []);
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao criar tarefas recomendadas.");
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   const handleMarkDone = async (task: Task) => {
     const today = new Date().toISOString().split("T")[0];
     const { data: nextDue } = await supabase.rpc("next_due_from_frequency", { base_date: today, freq: task.frequency });
@@ -272,6 +295,7 @@ export default function Continuity() {
             Agenda
             {overdueTasks.length > 0 && <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-1.5">{overdueTasks.length}</span>}
           </TabsTrigger>
+          <TabsTrigger value="staff">Colaboradores</TabsTrigger>
           <TabsTrigger value="report">Relatório</TabsTrigger>
         </TabsList>
 
@@ -317,7 +341,10 @@ export default function Continuity() {
 
         {/* ── AGENDA ─────────────────────────────────────────── */}
         <TabsContent value="agenda" className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={handleSeedDefaults} disabled={seeding}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${seeding ? "animate-spin" : ""}`} /> Tarefas recomendadas
+            </Button>
             <Button onClick={() => setTaskOpen(true)}>
               <Plus className="h-4 w-4 mr-2" /> Nova tarefa recorrente
             </Button>
@@ -368,6 +395,11 @@ export default function Continuity() {
               Sem tarefas recorrentes definidas. Cria a agenda de manutenção deste cliente.
             </CardContent></Card>
           )}
+        </TabsContent>
+
+        {/* ── COLABORADORES ──────────────────────────────────── */}
+        <TabsContent value="staff">
+          {clientId && <StaffTab clientId={clientId} />}
         </TabsContent>
 
         {/* ── RELATÓRIO ──────────────────────────────────────── */}

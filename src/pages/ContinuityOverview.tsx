@@ -17,6 +17,7 @@ const TYPE_LABELS: Record<string, string> = {
   ssl_renewal: "SSL",
   dossier_review: "Revisão Dossier",
   incident: "Incidente",
+  physical_access_review: "Revisão Acessos Físicos", media_disposal: "Destruição Suportes", training_session: "Formação",
   other: "Outro",
 };
 

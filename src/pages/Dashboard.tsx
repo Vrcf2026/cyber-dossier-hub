@@ -62,7 +62,7 @@ export default function Dashboard() {
     backup_check: "Backup", restore_test: "Restauro", patch_update: "Patches",
     log_review: "Logs", vuln_scan: "Scan", access_review: "Acessos",
     phishing_campaign: "Phishing", ssl_renewal: "SSL", dossier_review: "Dossier",
-    incident: "Incidente", other: "Outro",
+    incident: "Incidente", physical_access_review: "Acessos físicos", media_disposal: "Destruição", training_session: "Formação", other: "Outro",
   };
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString("pt-PT");
