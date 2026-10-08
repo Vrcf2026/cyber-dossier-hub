@@ -1,8 +1,9 @@
 // supabase/functions/dossier-export/index.ts
 //
-// Gera o documento Word final do dossier, em 3 variantes:
+// Gera o documento Word final do dossier, em 4 variantes:
 // "cliente" (só secções visíveis ao cliente), "tecnico" (todas),
-// "credenciais" (folha à parte, nunca junta com as outras).
+// "credenciais" (folha à parte, nunca junta com as outras),
+// "politica" (Política de Segurança da Informação — ver policy.ts).
 //
 // Devolve o ficheiro .docx diretamente (binário), não JSON.
 
@@ -11,6 +12,7 @@ import {
   Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell,
   WidthType, AlignmentType, BorderStyle, ShadingType,
 } from "npm:docx@8.5.0";
+import { buildPolicyDoc } from "./policy.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -155,7 +157,7 @@ Deno.serve(async (req: Request) => {
 
     const url = new URL(req.url);
     const dossierId = url.searchParams.get("dossierId");
-    const variant = url.searchParams.get("variant") || "cliente"; // cliente | tecnico | credenciais
+    const variant = url.searchParams.get("variant") || "cliente"; // cliente | tecnico | credenciais | politica
 
     if (!dossierId) {
       return new Response(JSON.stringify({ error: "dossierId é obrigatório." }), {
@@ -237,6 +239,24 @@ Deno.serve(async (req: Request) => {
         }],
       });
       filename = `Credenciais_${(client?.name ?? "cliente").replace(/\s+/g, "_")}.docx`;
+    } else if (variant === "politica") {
+      const clientId = (dossier as any).client_id;
+      const [{ data: sections }, { data: company }, { data: evidences }, { data: tasks }, { data: staff }] = await Promise.all([
+        supabaseClient.from("dossier_sections").select("section_number, section_status, is_completed, ai_generated_content").eq("dossier_id", dossierId),
+        supabaseClient.from("company_settings").select("name, email, phone").limit(1).maybeSingle(),
+        supabaseClient.from("client_evidences").select("evidence_type, evidence_date, result").eq("client_id", clientId),
+        supabaseClient.from("client_tasks").select("evidence_type, active").eq("client_id", clientId),
+        supabaseClient.from("client_staff").select("name, active, policy_ack_signed_at, confidentiality_signed_at, last_training_at").eq("client_id", clientId).order("name"),
+      ]);
+      doc = buildPolicyDoc({
+        client: { name: client?.name ?? "", nif: client?.nif, address: client?.address, contact_person: client?.contact_person },
+        provider: company ?? null,
+        sections: (sections as any[]) ?? [],
+        evidences: (evidences as any[]) ?? [],
+        tasks: (tasks as any[]) ?? [],
+        staff: (staff as any[]) ?? [],
+      });
+      filename = `Politica_Seguranca_${(client?.name ?? "cliente").replace(/\s+/g, "_")}.docx`;
     } else {
       const { data: sections } = await supabaseClient
         .from("dossier_sections")
