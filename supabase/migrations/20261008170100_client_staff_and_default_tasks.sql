@@ -7,7 +7,7 @@
 -- Não é um módulo de RH — só o mínimo que um auditor pede.
 -- ============================================================
 
-CREATE TABLE public.client_staff (
+CREATE TABLE IF NOT EXISTS public.client_staff (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id UUID NOT NULL REFERENCES public.clients(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -25,19 +25,24 @@ CREATE TABLE public.client_staff (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_client_staff_client ON public.client_staff(client_id, active);
+CREATE INDEX IF NOT EXISTS idx_client_staff_client ON public.client_staff(client_id, active);
 
 ALTER TABLE public.client_staff ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Staff can read client staff" ON public.client_staff;
 CREATE POLICY "Staff can read client staff" ON public.client_staff
   FOR SELECT TO authenticated USING (public.is_approved(auth.uid()));
+DROP POLICY IF EXISTS "Staff can insert client staff" ON public.client_staff;
 CREATE POLICY "Staff can insert client staff" ON public.client_staff
   FOR INSERT TO authenticated WITH CHECK (public.is_approved(auth.uid()));
+DROP POLICY IF EXISTS "Staff can update client staff" ON public.client_staff;
 CREATE POLICY "Staff can update client staff" ON public.client_staff
   FOR UPDATE TO authenticated USING (public.is_approved(auth.uid()));
+DROP POLICY IF EXISTS "Admins can delete client staff" ON public.client_staff;
 CREATE POLICY "Admins can delete client staff" ON public.client_staff
   FOR DELETE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
 
+DROP TRIGGER IF EXISTS update_client_staff_updated_at ON public.client_staff;
 CREATE TRIGGER update_client_staff_updated_at
   BEFORE UPDATE ON public.client_staff
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
