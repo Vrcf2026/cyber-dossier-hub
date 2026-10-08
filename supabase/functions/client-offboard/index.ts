@@ -257,7 +257,7 @@ Deno.serve(async (req: Request) => {
         patch_update: "Patches", log_review: "Revisão Logs",
         vuln_scan: "Scan Vuln.", access_review: "Revisão Acessos",
         phishing_campaign: "Phishing", ssl_renewal: "SSL",
-        dossier_review: "Revisão Dossier", incident: "Incidente", other: "Outro",
+        dossier_review: "Revisão Dossier", incident: "Incidente", physical_access_review: "Revisão Acessos Físicos", media_disposal: "Destruição Suportes", training_session: "Formação", other: "Outro",
       };
       (doc as any).autoTable({
         startY: y,

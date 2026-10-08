@@ -124,6 +124,68 @@ export type Database = {
         }
         Relationships: []
       }
+      client_staff: {
+        Row: {
+          active: boolean
+          client_id: string
+          confidentiality_signed_at: string | null
+          created_at: string
+          email: string | null
+          id: string
+          job_role: string | null
+          last_training_at: string | null
+          left_at: string | null
+          name: string
+          notes: string | null
+          policy_ack_signed_at: string | null
+          screening_checked: boolean
+          start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          client_id: string
+          confidentiality_signed_at?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          job_role?: string | null
+          last_training_at?: string | null
+          left_at?: string | null
+          name: string
+          notes?: string | null
+          policy_ack_signed_at?: string | null
+          screening_checked?: boolean
+          start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          client_id?: string
+          confidentiality_signed_at?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          job_role?: string | null
+          last_training_at?: string | null
+          left_at?: string | null
+          name?: string
+          notes?: string | null
+          policy_ack_signed_at?: string | null
+          screening_checked?: boolean
+          start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_staff_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null
