@@ -2,3 +2,5 @@ project_id = "hnmnmwxgzydaovigszwd"
 
 [functions.phishing-track]
 verify_jwt = false
+[functions.sentinela-evidencia]
+verify_jwt = false
