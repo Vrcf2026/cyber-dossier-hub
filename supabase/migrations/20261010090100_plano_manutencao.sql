@@ -101,6 +101,8 @@ BEGIN
         UPDATE public.client_tasks SET
           frequency = r.frequency::public.task_frequency,
           next_due = CASE WHEN r.frequency = 'once' THEN t.next_due
+                          WHEN r.automatico AND r.frequency = 'monthly' THEN (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month 9 days')::date
+                          WHEN r.automatico AND r.frequency = 'quarterly' THEN (date_trunc('quarter', CURRENT_DATE) + INTERVAL '3 months 9 days')::date
                           ELSE public.next_due_from_frequency(COALESCE(t.last_done, CURRENT_DATE), r.frequency::public.task_frequency) END
          WHERE id = t.id;
         n := n + 1;
@@ -117,6 +119,12 @@ BEGIN
     INSERT INTO public.client_tasks (client_id, evidence_type, title, frequency, next_due, notes, origem)
     VALUES (p_client_id, r.evidence_type::public.evidence_type, r.title, r.frequency::public.task_frequency,
             CASE WHEN r.frequency = 'once' THEN CURRENT_DATE + 30
+                 -- Provas automáticas (Sentinela): alinhadas com o fim de cada período + 9 dias
+                 -- (os relatórios são gerados no dia 1 e entregues até ao dia 10).
+                 WHEN r.automatico AND r.frequency = 'monthly' THEN (date_trunc('month', CURRENT_DATE) + INTERVAL '1 month 9 days')::date
+                 WHEN r.automatico AND r.frequency = 'quarterly' THEN (date_trunc('quarter', CURRENT_DATE) + INTERVAL '3 months 9 days')::date
+                 WHEN r.automatico AND r.frequency = 'semiannual' THEN
+                   (date_trunc('year', CURRENT_DATE) + CASE WHEN EXTRACT(MONTH FROM CURRENT_DATE) <= 6 THEN INTERVAL '6 months 9 days' ELSE INTERVAL '12 months 9 days' END)::date
                  ELSE public.next_due_from_frequency(CURRENT_DATE, r.frequency::public.task_frequency) END,
             CASE WHEN r.automatico THEN 'Plano de manutenção — prova automática (VRCF Sentinela)' ELSE 'Plano de manutenção' END,
             'plano');
