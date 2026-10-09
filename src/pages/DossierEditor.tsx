@@ -61,13 +61,13 @@ export default function DossierEditor() {
     setSections(s ?? []);
   };
 
-  const handleExport = async (variant: "cliente" | "tecnico" | "politica" | "adenda") => {
+  const handleExport = async (variant: "cliente" | "tecnico" | "politica" | "adenda", nivel?: 1 | 2 | 3) => {
     setExporting(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dossier-export?dossierId=${id}&variant=${variant}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dossier-export?dossierId=${id}&variant=${variant}${nivel ? `&nivel=${nivel}` : ""}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!res.ok) throw new Error("Falha ao gerar documento");
@@ -78,7 +78,7 @@ export default function DossierEditor() {
       a.download = variant === "politica"
         ? `Politica_Seguranca_${client?.name ?? ""}.docx`
         : variant === "adenda"
-        ? `Adenda_Monitorizacao_RGPD_${client?.name ?? ""}.docx`
+        ? `Adenda_Sentinela${nivel ? `_Nivel${nivel}` : ""}_${client?.name ?? ""}.docx`
         : `Dossier_${variant === "tecnico" ? "Tecnico" : "Cliente"}_${client?.name ?? ""}.docx`;
       a.click();
       URL.revokeObjectURL(url);
@@ -430,7 +430,9 @@ export default function DossierEditor() {
               <DropdownMenuItem onClick={() => handleExport("cliente")}>Versão Cliente</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleExport("tecnico")}>Versão Técnica</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleExport("politica")}>Política de Segurança</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport("adenda")}>Adenda de monitorização (RGPD)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("adenda", 1)}>Adenda Sentinela — Nível 1 (relatórios)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("adenda", 2)}>Adenda Sentinela — Nível 2 (monitorização)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("adenda", 3)}>Adenda Sentinela — Nível 3 (resposta remota)</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <Select value={dossier.status} onValueChange={updateStatus}>
