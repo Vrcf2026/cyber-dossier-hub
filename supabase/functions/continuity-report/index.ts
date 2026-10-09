@@ -26,7 +26,7 @@ const TYPE_LABELS: Record<string, string> = {
   ssl_renewal: "Renovação SSL",
   dossier_review: "Revisão do Dossier",
   incident: "Incidente",
-  physical_access_review: "Revisão de Acessos Físicos", media_disposal: "Destruição de Suportes", training_session: "Formação / Sensibilização",
+  physical_access_review: "Revisão de Acessos Físicos", media_disposal: "Destruição de Suportes", training_session: "Formação / Sensibilização", asset_review: "Inventário do Parque Informático", config_review: "Configuração de Segurança", supplier_review: "Fornecedores e Acessos de Terceiros", contacts_review: "Contactos de Emergência",
   other: "Outro",
 };
 
@@ -66,7 +66,7 @@ Deno.serve(async (req: Request) => {
         .select("*")
         .eq("client_id", clientId)
         .eq("active", true)
-        .lt("next_due", new Date().toISOString().split("T")[0]),
+        .lt("due_limit", new Date().toISOString().split("T")[0]),
     ]);
 
     // Resumo executivo por IA

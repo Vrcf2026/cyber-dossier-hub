@@ -34,7 +34,7 @@ const NIVEIS: Record<NivelServico, { nome: string; resumo: string }> = {
 };
 
 const FREQ: Record<string, string> = {
-  weekly: "Semanal", biweekly: "Quinzenal", monthly: "Mensal", quarterly: "Trimestral", semiannual: "Semestral", annual: "Anual",
+  weekly: "Semanal", biweekly: "Quinzenal", monthly: "Mensal", quarterly: "Trimestral", semiannual: "Semestral", annual: "Anual", once: "Única",
 };
 
 const TIPO: Record<string, string> = {
@@ -42,7 +42,8 @@ const TIPO: Record<string, string> = {
   log_review: "Revisão de registos", vuln_scan: "Análise de vulnerabilidades", access_review: "Revisão de acessos",
   phishing_campaign: "Campanha de phishing", ssl_renewal: "Renovação SSL", dossier_review: "Revisão do dossier",
   incident: "Incidente", physical_access_review: "Revisão de acessos físicos", media_disposal: "Destruição de suportes",
-  training_session: "Formação", other: "Outro",
+  training_session: "Formação", asset_review: "Inventário do parque", config_review: "Configuração de segurança",
+  supplier_review: "Fornecedores", contacts_review: "Contactos de emergência", other: "Outro",
 };
 
 export function buildAdendaDoc(input: AdendaInput): Document {

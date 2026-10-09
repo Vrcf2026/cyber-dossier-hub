@@ -19,7 +19,7 @@ const TYPE_LABELS: Record<string, string> = {
   backup_check: "Verificação de Backup", restore_test: "Teste de Restauro",
   patch_update: "Patches", log_review: "Revisão de Logs", vuln_scan: "Scan Vulnerabilidades",
   access_review: "Revisão de Acessos", phishing_campaign: "Phishing", ssl_renewal: "SSL",
-  dossier_review: "Revisão do Dossier", incident: "Incidente", physical_access_review: "Revisão de Acessos Físicos", media_disposal: "Destruição de Suportes", training_session: "Formação / Sensibilização", other: "Outro",
+  dossier_review: "Revisão do Dossier", incident: "Incidente", physical_access_review: "Revisão de Acessos Físicos", media_disposal: "Destruição de Suportes", training_session: "Formação / Sensibilização", asset_review: "Inventário do Parque Informático", config_review: "Configuração de Segurança", supplier_review: "Fornecedores e Acessos de Terceiros", contacts_review: "Contactos de Emergência", other: "Outro",
 };
 
 const RESULT_LABELS: Record<string, string> = { ok: "✓ OK", warning: "⚠ Alerta", fail: "✗ Falha", pending: "Pendente" };
@@ -45,7 +45,7 @@ Deno.serve(async (req: Request) => {
       sb.from("client_evidences").select("*").eq("client_id", clientId)
         .gte("evidence_date", periodStart).lte("evidence_date", periodEnd).order("evidence_date"),
       sb.from("client_tasks").select("*").eq("client_id", clientId).eq("active", true)
-        .lt("next_due", new Date().toISOString().split("T")[0]),
+        .lt("due_limit", new Date().toISOString().split("T")[0]),
     ]);
 
     // Resumo executivo por IA

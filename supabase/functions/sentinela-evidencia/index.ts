@@ -1,7 +1,8 @@
 // supabase/functions/sentinela-evidencia/index.ts
 //
-// Recebe os relatórios de segurança entregues no VRCF Sentinela e regista-os
-// como evidência do cliente (tipo "log_review"), com o relatório anexado.
+// Recebe as provas automáticas do VRCF Sentinela e regista-as como evidência do cliente,
+// com o relatório anexado. Campo "tipo": log_review (relatórios, por omissão), backup_check
+// (resumo mensal dos backups), config_review (configuração) ou asset_review (parque).
 //
 // Pública (verify_jwt = false no config.toml) porque quem chama é o servidor do
 // Sentinela, não um utilizador. A autenticação é por assinatura HMAC-SHA256 com
@@ -94,10 +95,12 @@ Deno.serve(async (req: Request) => {
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
 
   const resultado = ["ok", "warning", "fail", "pending"].includes(p.resultado) ? p.resultado : "ok";
+  // Tipo de prova: relatórios (log_review), backups (backup_check), configuração (config_review), parque (asset_review)
+  const tipo = ["log_review", "backup_check", "config_review", "asset_review"].includes(p.tipo) ? p.tipo : "log_review";
   const { data: ev, error } = await sb.from("client_evidences").insert({
     client_id: cliente.id,
     dossier_id: dossier?.id ?? null,
-    evidence_type: "log_review",
+    evidence_type: tipo,
     result: resultado,
     title: String(p.titulo).slice(0, 300),
     notes: p.notas ? String(p.notas).slice(0, 4000) : null,
@@ -110,13 +113,7 @@ Deno.serve(async (req: Request) => {
   }).select("id").single();
   if (error) return json({ erro: "inserir", detalhe: error.message }, 500);
 
-  // Avança a tarefa "Revisão de logs" do cliente, como quando se regista à mão.
-  const { data: tarefa } = await sb.from("client_tasks").select("id, frequency")
-    .eq("client_id", cliente.id).eq("evidence_type", "log_review").eq("active", true).limit(1).maybeSingle();
-  if (tarefa) {
-    const { data: proxima } = await sb.rpc("next_due_from_frequency", { base_date: String(p.data).slice(0, 10), freq: tarefa.frequency });
-    await sb.from("client_tasks").update({ last_done: String(p.data).slice(0, 10), next_due: proxima }).eq("id", tarefa.id);
-  }
+  // A tarefa do mesmo tipo avança sozinha na base de dados (trigger tarefa_registar_prova).
 
   return json({ ok: true, id: ev.id, cliente: cliente.name }, 201);
 });
