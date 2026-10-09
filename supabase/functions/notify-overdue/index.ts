@@ -3,7 +3,11 @@
 // em atraso e lembretes do dia seguinte, com email HTML profissional.
 // Configurar no Supabase: Cron → "0 8 * * 1-5" → /notify-overdue
 //
-// Secrets necessários: RESEND_API_KEY, NOTIFY_FROM_EMAIL (ex: alertas@vrcf.pt)
+// Secrets necessários: RESEND_API_KEY, NOTIFY_FROM_EMAIL (ex: alertas@vrcf.pt), CRON_SEGREDO
+//
+// Quem pode chamar: o agendamento (cabeçalho x-cron-segredo = CRON_SEGREDO, ou a chave
+// service_role exata) ou um administrador com sessão e verificação em dois passos.
+// Sem isto, qualquer pessoa podia disparar emails para toda a equipa.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -126,10 +130,40 @@ function buildEmailHtml(
 </body></html>`;
 }
 
+function igualSeguro(a: string, b: string): boolean {
+  const x = new TextEncoder().encode(a), y = new TextEncoder().encode(b);
+  if (x.length !== y.length) return false;
+  let d = 0;
+  for (let i = 0; i < x.length; i++) d |= x[i] ^ y[i];
+  return d === 0;
+}
+
+async function autorizado(req: Request): Promise<boolean> {
+  const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "").trim();
+  const cronSegredo = Deno.env.get("CRON_SEGREDO") ?? "";
+  const cabecalho = req.headers.get("x-cron-segredo") ?? "";
+  if (token && igualSeguro(token, SUPABASE_SERVICE_ROLE_KEY)) return true;
+  if (cronSegredo.length >= 24 && cabecalho && igualSeguro(cabecalho, cronSegredo)) return true;
+  if (!token) return false;
+  // Administrador (token validado pelo servidor de auth antes de ler o aal)
+  const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data, error } = await sb.auth.getUser(token);
+  if (error || !data?.user) return false;
+  try {
+    const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    if (JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4))).aal !== "aal2") return false;
+  } catch { return false; }
+  const { data: isAdmin } = await sb.rpc("has_role", { _user_id: data.user.id, _role: "admin" });
+  return !!isAdmin;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
   try {
+    if (!(await autorizado(req))) {
+      return new Response(JSON.stringify({ error: "Não autorizado." }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+    }
     if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY não configurada.");
 
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);

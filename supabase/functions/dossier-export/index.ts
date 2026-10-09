@@ -1,9 +1,10 @@
 // supabase/functions/dossier-export/index.ts
 //
-// Gera o documento Word final do dossier, em 4 variantes:
+// Gera o documento Word final do dossier, em 5 variantes:
 // "cliente" (só secções visíveis ao cliente), "tecnico" (todas),
 // "credenciais" (folha à parte, nunca junta com as outras),
-// "politica" (Política de Segurança da Informação — ver policy.ts).
+// "politica" (Política de Segurança da Informação — ver policy.ts),
+// "adenda" (Adenda de monitorização de segurança e RGPD — ver adenda.ts).
 //
 // Devolve o ficheiro .docx diretamente (binário), não JSON.
 
@@ -13,6 +14,7 @@ import {
   WidthType, AlignmentType, BorderStyle, ShadingType,
 } from "npm:docx@8.5.0";
 import { buildPolicyDoc } from "./policy.ts";
+import { buildAdendaDoc } from "./adenda.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -127,6 +129,14 @@ function buildHeader(title: string, clientName: string, subtitle: string) {
   ];
 }
 
+/** Nível de autenticação do token. Só chamar DEPOIS de getUser() ter validado o token no servidor de auth. */
+function aalDoToken(token: string): string | null {
+  try {
+    const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4))).aal ?? null;
+  } catch { return null; }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -157,7 +167,7 @@ Deno.serve(async (req: Request) => {
 
     const url = new URL(req.url);
     const dossierId = url.searchParams.get("dossierId");
-    const variant = url.searchParams.get("variant") || "cliente"; // cliente | tecnico | credenciais | politica
+    const variant = url.searchParams.get("variant") || "cliente"; // cliente | tecnico | credenciais | politica | adenda
 
     if (!dossierId) {
       return new Response(JSON.stringify({ error: "dossierId é obrigatório." }), {
@@ -183,6 +193,12 @@ Deno.serve(async (req: Request) => {
     });
     if ((variant === "tecnico" || variant === "credenciais") && !isAdminCaller) {
       return new Response(JSON.stringify({ error: "Sem permissões para esta versão." }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    // Versões técnica e de credenciais: só com a verificação em dois passos feita nesta sessão.
+    if ((variant === "tecnico" || variant === "credenciais") && aalDoToken(jwt) !== "aal2") {
+      return new Response(JSON.stringify({ error: "Confirme a verificação em dois passos." }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -239,6 +255,18 @@ Deno.serve(async (req: Request) => {
         }],
       });
       filename = `Credenciais_${(client?.name ?? "cliente").replace(/\s+/g, "_")}.docx`;
+    } else if (variant === "adenda") {
+      const clientId = (dossier as any).client_id;
+      const [{ data: company }, { data: staff }] = await Promise.all([
+        supabaseClient.from("company_settings").select("name, email, phone, nif").limit(1).maybeSingle(),
+        supabaseClient.from("client_staff").select("name, active").eq("client_id", clientId).order("name"),
+      ]);
+      doc = buildAdendaDoc({
+        client: { name: client?.name ?? "", nif: client?.nif, address: client?.address, contact_person: client?.contact_person },
+        provider: company ?? null,
+        staff: (staff as any[]) ?? [],
+      });
+      filename = `Adenda_Monitorizacao_RGPD_${(client?.name ?? "cliente").replace(/\s+/g, "_")}.docx`;
     } else if (variant === "politica") {
       const clientId = (dossier as any).client_id;
       const [{ data: sections }, { data: company }, { data: evidences }, { data: tasks }, { data: staff }] = await Promise.all([

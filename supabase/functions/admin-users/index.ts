@@ -1,7 +1,9 @@
 // supabase/functions/admin-users/index.ts
 //
 // Gestão de utilizadores, exclusiva de administradores.
-// Ações: list, create, set_role, set_approved, set_client, grant_dossier, revoke_dossier
+// Ações: list, create, set_role, set_approved, set_client, grant_dossier, revoke_dossier, reset_mfa
+//
+// Exige sessão com verificação em dois passos (aal2): uma password roubada não chega para gerir contas.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -12,6 +14,14 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+/** Nível de autenticação do token. Só chamar DEPOIS de getUser() ter validado o token no servidor de auth. */
+function aalDoToken(token: string): string | null {
+  try {
+    const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4))).aal ?? null;
+  } catch { return null; }
+}
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -27,10 +37,10 @@ Deno.serve(async (req: Request) => {
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Não autenticado." }, 401);
-    const { data: userData, error: userErr } = await admin.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
+    const token = authHeader.replace("Bearer ", "");
+    const { data: userData, error: userErr } = await admin.auth.getUser(token);
     if (userErr || !userData?.user) return json({ error: "Sessão inválida." }, 401);
+    if (aalDoToken(token) !== "aal2") return json({ error: "Confirme a verificação em dois passos." }, 403);
 
     const callerId = userData.user.id;
     const { data: isAdmin } = await admin.rpc("has_role", { _user_id: callerId, _role: "admin" });
@@ -40,6 +50,14 @@ Deno.serve(async (req: Request) => {
 
     switch (action) {
       case "list": {
+        // Quem tem a verificação em dois passos configurada (fator TOTP verificado)
+        const mfaPorUtilizador = new Map<string, boolean>();
+        for (let page = 1; page <= 20; page++) {
+          const { data } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+          const lista = data?.users ?? [];
+          for (const u of lista) mfaPorUtilizador.set(u.id, (u.factors ?? []).some((f: any) => f.status === "verified"));
+          if (lista.length < 200) break;
+        }
         const [{ data: profiles }, { data: roles }, { data: access }] = await Promise.all([
           admin.from("profiles").select("*").order("created_at"),
           admin.from("user_roles").select("user_id, role"),
@@ -48,6 +66,7 @@ Deno.serve(async (req: Request) => {
         return json({
           users: (profiles ?? []).map((p) => ({
             ...p,
+            mfa: mfaPorUtilizador.get(p.user_id) ?? false,
             role: roles?.find((r) => r.user_id === p.user_id)?.role ?? "tecnico",
             dossier_ids: (access ?? []).filter((a) => a.user_id === p.user_id).map((a) => a.dossier_id),
           })),
@@ -117,6 +136,20 @@ Deno.serve(async (req: Request) => {
           .eq("dossier_id", dossier_id);
         if (error) return json({ error: error.message }, 400);
         return json({ ok: true });
+      }
+
+      case "reset_mfa": {
+        // Telemóvel perdido: apaga os fatores; no próximo login a pessoa configura de novo.
+        const { user_id } = payload;
+        if (!user_id) return json({ error: "Dados incompletos." }, 400);
+        if (user_id === callerId) return json({ error: "Peça a outro administrador para repor a sua verificação." }, 400);
+        const { data: lista, error: errLista } = await admin.auth.admin.mfa.listFactors({ userId: user_id });
+        if (errLista) return json({ error: errLista.message }, 400);
+        for (const f of lista?.factors ?? []) {
+          const { error } = await admin.auth.admin.mfa.deleteFactor({ id: f.id, userId: user_id });
+          if (error) return json({ error: error.message }, 400);
+        }
+        return json({ ok: true, removidos: lista?.factors?.length ?? 0 });
       }
 
       default:

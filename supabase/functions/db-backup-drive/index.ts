@@ -10,7 +10,8 @@
 //  5. Remove backups mais antigos que `retention_weeks`.
 //  6. Atualiza `backup_settings` com o estado do último backup.
 //
-// Agendamento: pg_cron semanal (configurado separadamente).
+// Agendamento: pg_cron semanal (configurado separadamente), com o cabeçalho
+// x-cron-segredo = segredo CRON_SEGREDO (ou a chave service_role). A chave anon NÃO serve.
 // Também pode ser invocado manualmente por um admin.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -79,22 +80,36 @@ function createAdminClient() {
   return createClient(getRequiredEnv("SUPABASE_URL"), getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY"));
 }
 
-function isProjectApiKey(token: string): boolean {
-  if (token === Deno.env.get("SUPABASE_ANON_KEY") || token === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) {
-    return true;
-  }
+/** Comparação em tempo constante (não revela quantos caracteres batem certo). */
+function igualSeguro(a: string, b: string): boolean {
+  const x = new TextEncoder().encode(a), y = new TextEncoder().encode(b);
+  if (x.length !== y.length) return false;
+  let d = 0;
+  for (let i = 0; i < x.length; i++) d |= x[i] ^ y[i];
+  return d === 0;
+}
 
+/**
+ * Chamada agendada legítima: só com a chave service_role EXATA ou com o cabeçalho
+ * x-cron-segredo igual ao segredo CRON_SEGREDO (Edge Functions → Secrets).
+ * A chave anon é pública (vai no código do site) e NUNCA chega; tokens não são
+ * descodificados sem verificação.
+ */
+function isScheduledRequest(req: Request, bearerToken: string): boolean {
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const cronSegredo = Deno.env.get("CRON_SEGREDO") ?? "";
+  const cabecalho = req.headers.get("x-cron-segredo") ?? "";
+  if (serviceKey && bearerToken && igualSeguro(bearerToken, serviceKey)) return true;
+  if (cronSegredo.length >= 24 && cabecalho && igualSeguro(cabecalho, cronSegredo)) return true;
+  return false;
+}
+
+/** Nível de autenticação do token. Só chamar DEPOIS de getUser() ter validado o token. */
+function aalDoToken(token: string): string | null {
   try {
-    const [, payload] = token.split(".");
-    if (!payload) return false;
-
-    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-    const claims = JSON.parse(atob(padded));
-    return claims?.role === "anon" || claims?.role === "service_role";
-  } catch {
-    return false;
-  }
+    const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4))).aal ?? null;
+  } catch { return null; }
 }
 
 async function updateBackupError(
@@ -512,15 +527,20 @@ Deno.serve(async (req: Request) => {
     const admin = createAdminClient();
     let settings: BackupSettingsRow | null = null;
 
-    // Se for chamada autenticada (manual), validar admin
+    // Ou é o agendamento (service_role exata ou x-cron-segredo), ou um administrador
+    // com sessão válida e verificação em dois passos. Tudo o resto é recusado.
     const authHeader = req.headers.get("Authorization");
     const bearerToken = authHeader?.replace("Bearer ", "").trim() ?? "";
-    const isScheduledCall = bearerToken ? isProjectApiKey(bearerToken) : true;
+    const isScheduledCall = isScheduledRequest(req, bearerToken);
 
-    if (bearerToken && !isScheduledCall) {
+    if (!isScheduledCall) {
+      if (!bearerToken) return jsonResponse({ error: "Não autenticado." }, 401);
       const { data: userData, error: userError } = await admin.auth.getUser(bearerToken);
       if (userError || !userData?.user) {
         return jsonResponse({ error: "Sessão inválida." }, 401);
+      }
+      if (aalDoToken(bearerToken) !== "aal2") {
+        return jsonResponse({ error: "Confirme a verificação em dois passos." }, 403);
       }
       const { data: roleRow } = await admin
         .from("user_roles")
@@ -532,7 +552,6 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ error: "Apenas administradores podem gerir backups." }, 403);
       }
     }
-    // Sem sessão de utilizador, assume-se chamada agendada/backend.
 
     // Ler configuração
     const { data, error: settingsError } = await admin

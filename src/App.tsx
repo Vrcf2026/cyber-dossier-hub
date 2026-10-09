@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { AppLayout } from "@/components/AppLayout";
 import Auth from "./pages/Auth";
+import Mfa from "./pages/Mfa";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Clients from "./pages/Clients";
@@ -48,12 +49,14 @@ function NotApproved() {
 
 /** Rotas internas (admin / técnico) */
 function StaffRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, isStaff, isCliente, isApproved } = useAuth();
+  const { user, isLoading, isStaff, isCliente, isApproved, aal } = useAuth();
   if (isLoading) return <Loading />;
   if (!user) return <Navigate to="/auth" replace />;
   if (!isApproved) return <NotApproved />;
   if (isCliente) return <Navigate to="/portal" replace />;
   if (!isStaff) return <NotApproved />;
+  // Equipa: verificação em dois passos obrigatória (a base de dados também o exige nas credenciais).
+  if (aal !== "aal2") return <Mfa />;
   return <AppLayout>{children}</AppLayout>;
 }
 

@@ -61,7 +61,7 @@ export default function DossierEditor() {
     setSections(s ?? []);
   };
 
-  const handleExport = async (variant: "cliente" | "tecnico" | "politica") => {
+  const handleExport = async (variant: "cliente" | "tecnico" | "politica" | "adenda") => {
     setExporting(true);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -77,6 +77,8 @@ export default function DossierEditor() {
       a.href = url;
       a.download = variant === "politica"
         ? `Politica_Seguranca_${client?.name ?? ""}.docx`
+        : variant === "adenda"
+        ? `Adenda_Monitorizacao_RGPD_${client?.name ?? ""}.docx`
         : `Dossier_${variant === "tecnico" ? "Tecnico" : "Cliente"}_${client?.name ?? ""}.docx`;
       a.click();
       URL.revokeObjectURL(url);
@@ -428,6 +430,7 @@ export default function DossierEditor() {
               <DropdownMenuItem onClick={() => handleExport("cliente")}>Versão Cliente</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleExport("tecnico")}>Versão Técnica</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleExport("politica")}>Política de Segurança</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport("adenda")}>Adenda de monitorização (RGPD)</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <Select value={dossier.status} onValueChange={updateStatus}>

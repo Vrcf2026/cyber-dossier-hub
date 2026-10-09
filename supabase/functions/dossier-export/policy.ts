@@ -37,9 +37,9 @@ type Status = "Implementado" | "Parcial" | "Não implementado" | "Não aplicáve
 // ---------------------------------------------------------------
 // Helpers de formatação
 // ---------------------------------------------------------------
-const fmtDate = (d: Date) => d.toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" });
+export const fmtDate = (d: Date) => d.toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" });
 
-function p(text: string, opts: { bold?: boolean; italics?: boolean; after?: number; align?: (typeof AlignmentType)[keyof typeof AlignmentType] } = {}) {
+export function p(text: string, opts: { bold?: boolean; italics?: boolean; after?: number; align?: (typeof AlignmentType)[keyof typeof AlignmentType] } = {}) {
   return new Paragraph({
     alignment: opts.align,
     spacing: { after: opts.after ?? 120 },
@@ -47,7 +47,7 @@ function p(text: string, opts: { bold?: boolean; italics?: boolean; after?: numb
   });
 }
 
-function bullet(text: string) {
+export function bullet(text: string) {
   // Suporta **negrito** inline
   const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((t) =>
     t.startsWith("**") && t.endsWith("**") ? new TextRun({ text: t.slice(2, -2), bold: true }) : new TextRun({ text: t })
@@ -55,7 +55,7 @@ function bullet(text: string) {
   return new Paragraph({ spacing: { after: 60 }, indent: { left: 360, hanging: 240 }, children: [new TextRun({ text: "•  " }), ...parts] });
 }
 
-function h1(text: string, pageBreak = false) {
+export function h1(text: string, pageBreak = false) {
   return new Paragraph({
     heading: HeadingLevel.HEADING_1,
     pageBreakBefore: pageBreak,
@@ -73,7 +73,7 @@ function cell(text: string, opts: { bold?: boolean; fill?: string; width: number
   });
 }
 
-function table(headers: string[], widths: number[], rows: string[][], fills?: (string | undefined)[][]) {
+export function table(headers: string[], widths: number[], rows: string[][], fills?: (string | undefined)[][]) {
   return new Table({
     width: { size: widths.reduce((a, b) => a + b, 0), type: WidthType.DXA },
     rows: [
@@ -83,7 +83,7 @@ function table(headers: string[], widths: number[], rows: string[][], fills?: (s
   });
 }
 
-function signatureBlock(lines: string[]) {
+export function signatureBlock(lines: string[]) {
   return lines.flatMap((l) => [
     p(`${l}: ______________________________________________`, { after: 240 }),
   ]);
