@@ -25,6 +25,7 @@ type ManagedUser = {
   client_id: string | null;
   role: string;
   dossier_ids: string[];
+  mfa?: boolean;
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -161,6 +162,9 @@ export default function Users() {
                 {u.full_name || u.email}
                 <Badge variant="secondary">{ROLE_LABEL[u.role] ?? u.role}</Badge>
                 {u.user_id === user?.id && <Badge variant="outline">Você</Badge>}
+                {u.role !== "cliente" && (u.mfa
+                  ? <Badge variant="outline" className="text-green-700 border-green-300">2 passos</Badge>
+                  : <Badge variant="outline" className="text-amber-700 border-amber-300">Sem 2 passos</Badge>)}
               </CardTitle>
               <p className="text-xs text-muted-foreground">{u.email}</p>
             </CardHeader>
@@ -189,6 +193,18 @@ export default function Users() {
                     </SelectContent>
                   </Select>
                 </div>
+                {u.mfa && u.user_id !== user?.id && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm(`Repor a verificação em dois passos de ${u.full_name || u.email}? No próximo login vai ter de a configurar de novo (ex.: telemóvel perdido).`))
+                        update("reset_mfa", { user_id: u.user_id });
+                    }}
+                  >
+                    Repor 2 passos
+                  </Button>
+                )}
                 {u.role === "cliente" && (
                   <div className="flex items-center gap-2">
                     <span className="text-sm">Cliente</span>
