@@ -65,6 +65,11 @@ export function buildAdendaDoc(input: AdendaInput): Document {
     bullet(`**Prestador (subcontratante):** ${P}${input.provider?.nif ? `, NIF ${input.provider.nif}` : ""}${contacto ? ` (${contacto})` : ""}.`),
     p("A presente adenda faz parte do contrato de prestação de serviços de informática celebrado entre as partes. Define o nível de serviço contratado, o que o Prestador garante e o que não garante, e regula o tratamento de dados pessoais que resulta do serviço, nos termos do artigo 28.º do Regulamento Geral sobre a Proteção de Dados (RGPD)."),
 
+    h1("Enquadramento"),
+    bullet("O Prestador é uma empresa de informática que presta suporte técnico a micro e pequenas empresas. Não é um centro de operações de segurança (SOC) nem presta serviços de vigilância permanente."),
+    bullet("O serviço VRCF Sentinela foi concebido para dar a estas empresas um nível de segurança razoável e proporcionado à sua dimensão, ao risco e ao custo que podem suportar, como prevê o artigo 32.º do RGPD («tendo em conta as técnicas mais avançadas, os custos de aplicação…»)."),
+    bullet("O seu objetivo é reduzir a probabilidade e o impacto de incidentes e produzir provas documentadas das medidas de segurança adotadas, não eliminar todo o risco, o que nenhum serviço consegue garantir."),
+
     h1("1. Objeto"),
     p("O Prestador instala nos computadores e servidores do Cliente um agente de monitorização de segurança (VRCF Sentinela), que recolhe eventos técnicos de segurança e os envia, de forma cifrada, para uma consola gerida pelo Prestador. Com essa informação, o Prestador produz relatórios periódicos e mantém o registo de provas de segurança do Cliente no dossier de cibersegurança, e, consoante o nível contratado, acompanha os alertas e responde remotamente."),
 
@@ -76,6 +81,7 @@ export function buildAdendaDoc(input: AdendaInput): Document {
     bullet("O Prestador analisa a informação do período e entrega um relatório mensal e um relatório trimestral, até ao dia ___ do mês seguinte."),
     bullet("Os relatórios entregues ficam registados no dossier de cibersegurança do Cliente como prova, bloqueados contra alterações e com impressão digital (SHA-256)."),
     bullet("**Os alertas não são acompanhados à medida que acontecem:** são analisados na preparação do relatório."),
+    p("O Cliente declara que foi informado de que existem serviços de segurança mais abrangentes (por exemplo, vigilância permanente 24 horas por dia, deteção e resposta geridas por um centro de operações de segurança), com custos superiores, e que escolheu o nível assinalado, adequado à sua dimensão e orçamento.", { bold: true }),
     p("Em todos os níveis, o Prestador pode, por iniciativa própria, usar a informação recolhida para antecipar problemas e intervir de forma preventiva. Essas intervenções são feitas no interesse do Cliente e não criam, nem alargam, qualquer obrigação de vigilância ou de resposta além do nível contratado.", { italics: true }),
     p("Nível 2 — Monitorização", { bold: true }),
     bullet("Tudo o que inclui o Nível 1."),
