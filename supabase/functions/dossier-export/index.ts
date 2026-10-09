@@ -257,16 +257,21 @@ Deno.serve(async (req: Request) => {
       filename = `Credenciais_${(client?.name ?? "cliente").replace(/\s+/g, "_")}.docx`;
     } else if (variant === "adenda") {
       const clientId = (dossier as any).client_id;
-      const [{ data: company }, { data: staff }] = await Promise.all([
+      const [{ data: company }, { data: staff }, { data: tasks }] = await Promise.all([
         supabaseClient.from("company_settings").select("name, email, phone, nif").limit(1).maybeSingle(),
         supabaseClient.from("client_staff").select("name, active").eq("client_id", clientId).order("name"),
+        supabaseClient.from("client_tasks").select("title, evidence_type, frequency, active").eq("client_id", clientId).order("evidence_type"),
       ]);
+      const nivelTxt = url.searchParams.get("nivel");
+      const nivel = nivelTxt === "1" || nivelTxt === "2" || nivelTxt === "3" ? (Number(nivelTxt) as 1 | 2 | 3) : null;
       doc = buildAdendaDoc({
+        nivel,
+        tasks: (tasks as any[]) ?? [],
         client: { name: client?.name ?? "", nif: client?.nif, address: client?.address, contact_person: client?.contact_person },
         provider: company ?? null,
         staff: (staff as any[]) ?? [],
       });
-      filename = `Adenda_Monitorizacao_RGPD_${(client?.name ?? "cliente").replace(/\s+/g, "_")}.docx`;
+      filename = `Adenda_Sentinela${nivel ? `_Nivel${nivel}` : ""}_${(client?.name ?? "cliente").replace(/\s+/g, "_")}.docx`;
     } else if (variant === "politica") {
       const clientId = (dossier as any).client_id;
       const [{ data: sections }, { data: company }, { data: evidences }, { data: tasks }, { data: staff }] = await Promise.all([
