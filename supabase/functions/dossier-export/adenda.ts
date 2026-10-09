@@ -76,6 +76,7 @@ export function buildAdendaDoc(input: AdendaInput): Document {
     bullet("O Prestador analisa a informação do período e entrega um relatório mensal e um relatório trimestral, até ao dia ___ do mês seguinte."),
     bullet("Os relatórios entregues ficam registados no dossier de cibersegurança do Cliente como prova, bloqueados contra alterações e com impressão digital (SHA-256)."),
     bullet("**Os alertas não são acompanhados à medida que acontecem:** são analisados na preparação do relatório."),
+    p("Em todos os níveis, o Prestador pode, por iniciativa própria, usar a informação recolhida para antecipar problemas e intervir de forma preventiva. Essas intervenções são feitas no interesse do Cliente e não criam, nem alargam, qualquer obrigação de vigilância ou de resposta além do nível contratado.", { italics: true }),
     p("Nível 2 — Monitorização", { bold: true }),
     bullet("Tudo o que inclui o Nível 1."),
     bullet("O Prestador consulta os alertas da consola com regularidade, em dias úteis e dentro do seu horário de funcionamento, e informa o Cliente das situações relevantes, com recomendações."),
