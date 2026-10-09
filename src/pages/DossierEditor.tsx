@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Lock, Sparkles, Download, History, RotateCcw, ShieldCheck, AlertTriangle, AlertCircle, RefreshCw, MessageSquare, HelpCircle } from "lucide-react";
+import { ArrowLeft, Lock, Sparkles, Wand2, Download, History, RotateCcw, ShieldCheck, AlertTriangle, AlertCircle, RefreshCw, MessageSquare, HelpCircle } from "lucide-react";
 import { SectionGuide } from "@/components/SectionGuide";
+import AtualizacaoRapida from "@/components/AtualizacaoRapida";
 
 interface AuditSection { number: number; name: string; status: "ok"|"incomplete"|"empty"; issues: string[] }
 interface AuditResult { sections: AuditSection[]; cross_issues: string[]; critical_missing: string[]; overall_score: number }
@@ -44,6 +45,7 @@ export default function DossierEditor() {
   const [auditing, setAuditing] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [atualizarOpen, setAtualizarOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -402,6 +404,7 @@ export default function DossierEditor() {
 
   return (
     <div className="space-y-6">
+      {id && <AtualizacaoRapida dossierId={id} open={atualizarOpen} onOpenChange={setAtualizarOpen} onAplicado={fetchDossier} />}
       <Button variant="ghost" onClick={() => navigate("/dossiers")}>
         <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
       </Button>
@@ -416,6 +419,11 @@ export default function DossierEditor() {
             <MessageSquare className="h-4 w-4 mr-2" />
             {dossier.intake_completed ? "Continuar intake" : "Iniciar intake IA"}
           </Button>
+          {dossier.intake_completed && (
+            <Button size="sm" onClick={() => setAtualizarOpen(true)} title="Descreve o que mudou e a IA atualiza as secções certas">
+              <Wand2 className="h-4 w-4 mr-2" /> Atualização rápida
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={runAudit} disabled={auditing}>
             <ShieldCheck className="h-4 w-4 mr-2" />
             {auditing ? "A analisar..." : "Analisar lacunas"}
