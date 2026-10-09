@@ -29,8 +29,8 @@ export interface AdendaInput {
 
 const NIVEIS: Record<NivelServico, { nome: string; resumo: string }> = {
   1: { nome: "Nível 1 — Relatórios", resumo: "Recolha automática e entrega dos relatórios mensais e trimestrais, registados no dossier como prova." },
-  2: { nome: "Nível 2 — Monitorização", resumo: "Nível 1 + acompanhamento periódico dos alertas pela VRCF. Sem vigilância permanente nem resposta em tempo real." },
-  3: { nome: "Nível 3 — Monitorização com resposta remota", resumo: "Nível 2 + notificação imediata dos alertas graves e primeira resposta remota, no horário acordado." },
+  2: { nome: "Nível 2 — Monitorização", resumo: "Nível 1 + acompanhamento regular dos alertas pela VRCF em dias úteis. Sem vigilância permanente nem resposta em tempo real." },
+  3: { nome: "Nível 3 — Monitorização com resposta remota", resumo: "Nível 2 + notificação imediata dos alertas graves e primeira resposta remota em dias úteis, no horário do Prestador, sem tempos garantidos." },
 };
 
 const FREQ: Record<string, string> = {
@@ -78,13 +78,13 @@ export function buildAdendaDoc(input: AdendaInput): Document {
     bullet("**Os alertas não são acompanhados à medida que acontecem:** são analisados na preparação do relatório."),
     p("Nível 2 — Monitorização", { bold: true }),
     bullet("Tudo o que inclui o Nível 1."),
-    bullet("O Prestador consulta os alertas da consola com regularidade (dias úteis, ___ vezes por dia/semana) e informa o Cliente das situações relevantes, com recomendações."),
+    bullet("O Prestador consulta os alertas da consola com regularidade, em dias úteis e dentro do seu horário de funcionamento, e informa o Cliente das situações relevantes, com recomendações."),
     bullet("O Prestador é avisado quando um servidor ou computador deixa de comunicar."),
     bullet("**Não inclui vigilância permanente, fora de horas ou em tempo real, nem intervenção nos equipamentos.**"),
     p("Nível 3 — Monitorização com resposta remota", { bold: true }),
     bullet("Tudo o que inclui o Nível 2."),
     bullet("Os alertas graves são notificados de imediato ao técnico do Prestador."),
-    bullet("Primeira resposta remota no horário ________________, com início até ___ horas após o alerta: contactar o Cliente, isolar o equipamento da rede, terminar o processo suspeito ou bloquear a conta afetada."),
+    bullet("Primeira resposta remota, em dias úteis e dentro do horário de funcionamento do Prestador, logo que razoavelmente possível: contactar o Cliente, isolar o equipamento da rede, terminar o processo suspeito ou bloquear a conta afetada. Não há tempos de resposta garantidos."),
     bullet("**Fora desse horário não há resposta garantida.** A reparação, a recuperação de dados, a reinstalação e a investigação forense não estão incluídas e são orçamentadas à parte, salvo acordo escrito."),
 
     h1("3. O que o Prestador garante"),
@@ -102,7 +102,7 @@ export function buildAdendaDoc(input: AdendaInput): Document {
     bullet("só são observados os equipamentos com o agente instalado, ligados e com acesso à Internet; equipamentos desligados, sem agente ou fora da rede não são cobertos nesse período;"),
     bullet("a deteção depende dos registos do Windows e das regras disponíveis à data; ameaças novas ou desconhecidas podem não ser detetadas;"),
     bullet("o Prestador não responde pelos sistemas, aplicações e serviços de terceiros (por exemplo, fornecedores de software, operadores de telecomunicações e serviços na nuvem);"),
-    bullet("salvo no Nível 3, e apenas no horário acordado, não há resposta em tempo real."),
+    bullet("não há vigilância nem resposta em tempo real em nenhum nível; mesmo no Nível 3, a resposta é dada logo que razoavelmente possível, em dias úteis e no horário do Prestador."),
 
     h1("5. O que é monitorizado"),
     bullet("Inícios e fins de sessão, tentativas falhadas e acessos remotos (incluindo sessões AnyDesk/TeamViewer recebidas): conta, equipamento, hora e origem."),
