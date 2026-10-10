@@ -9,7 +9,10 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ShieldAlert, AlertTriangle, ClipboardCheck, CheckCircle2, XCircle, Clock } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ArrowLeft, ShieldAlert, AlertTriangle, ClipboardCheck, CheckCircle2, XCircle, Clock, MoreHorizontal } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
@@ -116,7 +119,7 @@ export default function ClientDetail() {
       </Button>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
           <CardTitle>{client.name}</CardTitle>
           <div className="flex gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={() => navigate(`/clientes/${id}/continuidade`)}>
@@ -126,9 +129,19 @@ export default function ClientDetail() {
               <ShieldAlert className="h-4 w-4 mr-2" /> Phishing
             </Button>
             {isAdmin && (
-              <Button variant="destructive" size="sm" onClick={() => setOffboardOpen(true)}>
-                <AlertTriangle className="h-4 w-4 mr-2" /> Encerrar
-              </Button>
+              // Encerrar é raro e irreversível: fica num menu, não ao lado das ações do dia a dia.
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" aria-label="Mais ações">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setOffboardOpen(true)}>
+                    <AlertTriangle className="h-4 w-4 mr-2" /> Encerrar cliente…
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
         </CardHeader>
@@ -139,6 +152,7 @@ export default function ClientDetail() {
               const today = new Date();
               const daysSinceBackup = lastBackup ? Math.floor((today.getTime() - new Date(lastBackup).getTime()) / 864e5) : null;
               const daysSinceRestore = lastRestore ? Math.floor((today.getTime() - new Date(lastRestore).getTime()) / 864e5) : null;
+              const ha = (d: number) => (d <= 0 ? "Hoje" : d === 1 ? "Ontem" : `Há ${d} dias`);
               const backupOk = daysSinceBackup !== null && daysSinceBackup <= 7;
               const backupWarn = daysSinceBackup !== null && daysSinceBackup <= 14;
               const restoreOk = daysSinceRestore !== null && daysSinceRestore <= 90;
@@ -146,13 +160,13 @@ export default function ClientDetail() {
               return [
                 {
                   label: "Último backup",
-                  value: lastBackup ? `${daysSinceBackup}d atrás` : "Nunca registado",
+                  value: lastBackup ? ha(daysSinceBackup!) : "Nunca registado",
                   icon: backupOk ? CheckCircle2 : daysSinceBackup !== null && daysSinceBackup <= 14 ? Clock : XCircle,
                   color: backupOk ? "text-green-600" : backupWarn ? "text-amber-600" : "text-red-600",
                 },
                 {
                   label: "Último restauro",
-                  value: lastRestore ? `${daysSinceRestore}d atrás` : "Nunca realizado",
+                  value: lastRestore ? ha(daysSinceRestore!) : "Nunca realizado",
                   icon: restoreOk ? CheckCircle2 : restoreWarn ? Clock : XCircle,
                   color: restoreOk ? "text-green-600" : restoreWarn ? "text-amber-600" : "text-red-600",
                 },

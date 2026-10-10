@@ -146,7 +146,7 @@ export default function AtualizacaoRapida({ dossierId, open, onOpenChange, onApl
               </div>
             ))}
             {proposta.avisos.length > 0 && (
-              <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm dark:bg-amber-950/30">
+              <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900/60 dark:bg-amber-950/30">
                 <p className="font-medium flex items-center gap-1 mb-1"><AlertTriangle className="h-4 w-4" /> A fazer por causa desta alteração</p>
                 <ul className="list-disc pl-5 space-y-0.5">{proposta.avisos.map((x, i) => <li key={i}>{x}</li>)}</ul>
               </div>
