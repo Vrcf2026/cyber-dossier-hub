@@ -27,7 +27,9 @@ export interface PolicyInput {
   provider: { name?: string | null; email?: string | null; phone?: string | null } | null;
   sections: { section_number: number; section_status?: string | null; is_completed?: boolean | null; ai_generated_content?: string | null }[];
   evidences: { evidence_type: string; evidence_date: string; result: string }[];
-  tasks: { evidence_type: string; active: boolean }[];
+  tasks: { evidence_type: string; active: boolean; frequency?: string | null }[];
+  /** clients.opcoes_plano — tipos marcados "na" (não se aplica) saem como "Não aplicável". */
+  planOptions?: Record<string, string> | null;
   staff: { name: string; active: boolean; policy_ack_signed_at: string | null; confidentiality_signed_at: string | null; last_training_at: string | null }[];
   today?: Date;
 }
@@ -113,9 +115,15 @@ function buildControls(input: PolicyInput) {
       .sort((a, b) => b.getTime() - a.getTime())[0];
 
   const hasTask = (type: string) => input.tasks.some((t) => t.active && t.evidence_type === type);
+  const FREQ_DIAS: Record<string, number> = { weekly: 7, biweekly: 14, monthly: 31, quarterly: 92, semiannual: 183, annual: 366 };
 
-  // Evidência recente → Implementado; tarefa agendada ou evidência antiga → Parcial
+  // Evidência recente → Implementado; tarefa agendada ou evidência antiga → Parcial.
+  // O prazo vem da frequência da tarefa do cliente + 15 dias de janela (senão, maxDays).
   const evidenceStatus = (type: string, maxDays: number): { status: Status; note: string } => {
+    if (input.planOptions?.[type] === "na") return { status: "Não aplicável", note: "Não se aplica a esta empresa (plano de manutenção)" };
+    const tarefa = input.tasks.find((t) => t.active && t.evidence_type === type);
+    if (tarefa?.frequency && FREQ_DIAS[tarefa.frequency]) maxDays = FREQ_DIAS[tarefa.frequency] + 15;
+    if (tarefa?.frequency === "once") maxDays = 100000;
     const last = lastEvidence(type);
     if (last && last >= daysAgo(maxDays)) return { status: "Implementado", note: `Último registo: ${fmtDate(last)}` };
     if (last) return { status: "Parcial", note: `Último registo: ${fmtDate(last)} (fora do prazo)` };
@@ -140,23 +148,27 @@ function buildControls(input: PolicyInput) {
     { area: "Governação", control: "Avaliação de riscos (matriz de risco)", ...sec(6) },
     { area: "Governação", control: "Revisão anual do dossier / auditoria interna", ...evidenceStatus("dossier_review", 365) },
     { area: "Ativos", control: "Inventário de equipamentos, software e serviços", ...sec(2) },
+    { area: "Ativos", control: "Atualização periódica do inventário do parque", ...evidenceStatus("asset_review", 200) },
+    { area: "Fornecedores", control: "Revisão de fornecedores e acessos remotos de terceiros", ...evidenceStatus("supplier_review", 381) },
     { area: "Informação", control: "Classificação e proteção de dados", ...sec(5) },
     { area: "Pessoas", control: "Confidencialidade assinada", ...pctStatus(active.filter((s) => s.confidentiality_signed_at).length, "com confidencialidade") },
     { area: "Pessoas", control: "Declaração de aceitação desta política", ...pctStatus(active.filter((s) => s.policy_ack_signed_at).length, "assinaram") },
-    { area: "Pessoas", control: "Formação de sensibilização (últimos 12 meses)", ...pctStatus(active.filter((s) => s.last_training_at && new Date(s.last_training_at) >= yearAgo).length, "formados") },
+    { area: "Pessoas", control: "Formação de sensibilização (últimos 12 meses)", ...(input.planOptions?.training_session === "na" ? { status: "Não aplicável" as Status, note: "Não incluída no plano de manutenção" } : pctStatus(active.filter((s) => s.last_training_at && new Date(s.last_training_at) >= yearAgo).length, "formados")) },
     { area: "Pessoas", control: "Testes de phishing", ...evidenceStatus("phishing_campaign", 365) },
     { area: "Acessos", control: "Gestão de identidades, passwords e MFA", ...sec(4) },
     { area: "Acessos", control: "Revisão anual de acessos lógicos", ...evidenceStatus("access_review", 365) },
-    { area: "Física", control: "Revisão anual de chaves e códigos de alarme", ...evidenceStatus("physical_access_review", 365) },
+    { area: "Física", control: "Revisão de chaves e códigos de alarme", ...evidenceStatus("physical_access_review", 365) },
     { area: "Física", control: "Destruição segura de papel e suportes", ...evidenceStatus("media_disposal", 365) },
     { area: "Rede", control: "Firewall, segmentação e acessos remotos", ...sec(3) },
     { area: "Sistemas", control: "Manutenção e atualizações (plano)", ...sec(9) },
-    { area: "Sistemas", control: "Aplicação de patches (últimos 45 dias)", ...evidenceStatus("patch_update", 45) },
-    { area: "Sistemas", control: "Revisão de logs de segurança (últimos 45 dias)", ...evidenceStatus("log_review", 45) },
+    { area: "Sistemas", control: "Aplicação de patches (dentro do prazo do plano)", ...evidenceStatus("patch_update", 45) },
+    { area: "Sistemas", control: "Revisão de logs de segurança (dentro do prazo do plano)", ...evidenceStatus("log_review", 45) },
+    { area: "Sistemas", control: "Revisão da configuração de segurança dos equipamentos", ...evidenceStatus("config_review", 107) },
     { area: "Continuidade", control: "Plano de backups e recuperação", ...sec(7) },
-    { area: "Continuidade", control: "Verificação de backups (últimos 45 dias)", ...evidenceStatus("backup_check", 45) },
-    { area: "Continuidade", control: "Teste de restauro (últimos 3 meses)", ...evidenceStatus("restore_test", 100) },
+    { area: "Continuidade", control: "Verificação de backups (dentro do prazo do plano)", ...evidenceStatus("backup_check", 45) },
+    { area: "Continuidade", control: "Teste de restauro (dentro do prazo do plano)", ...evidenceStatus("restore_test", 107) },
     { area: "Incidentes", control: "Plano de resposta a incidentes", ...sec(8) },
+    { area: "Incidentes", control: "Contactos de emergência revistos", ...evidenceStatus("contacts_review", 381) },
   ];
 }
 
@@ -240,7 +252,7 @@ export function buildPolicyDoc(input: PolicyInput): Document {
     bullet("Confirmar por telefone (para um número já conhecido, não o da mensagem) qualquer pedido de alteração de IBAN ou pagamento."),
     bullet("Não clicar em links nem abrir anexos suspeitos. Na dúvida, reportar ao Responsável de Segurança antes de abrir."),
     bullet("Não usar o email profissional para registos em serviços pessoais."),
-    bullet("A empresa realiza testes de phishing simulados para efeitos de formação. Os resultados são usados apenas para melhorar a formação."),
+    ...(input.planOptions?.phishing_campaign === "na" ? [] : [bullet("A empresa realiza testes de phishing simulados para efeitos de formação. Os resultados são usados apenas para melhorar a formação.")]),
 
     // --- 7 ---
     h1("7. Dispositivos móveis e trabalho remoto"),
@@ -296,9 +308,15 @@ export function buildPolicyDoc(input: PolicyInput): Document {
 
     // --- 14 ---
     h1("14. Formação e sensibilização"),
-    bullet("Todos os colaboradores recebem formação de sensibilização na entrada e pelo menos uma vez por ano."),
-    bullet("A formação inclui phishing, passwords, utilização aceitável, classificação da informação e como reportar incidentes."),
-    bullet("A participação é registada (lista de colaboradores e evidência da sessão)."),
+    ...(input.planOptions?.training_session === "na"
+      ? [bullet("Todos os colaboradores recebem esta política na entrada e confirmam a sua leitura; dúvidas são esclarecidas pelo Responsável de Segurança.")]
+      : [
+        bullet(input.planOptions?.training_session === "once"
+          ? "Os colaboradores recebem formação de sensibilização na entrada e numa sessão inicial para toda a equipa."
+          : `Todos os colaboradores recebem formação de sensibilização na entrada e pelo menos uma vez por ${input.planOptions?.training_session === "semiannual" ? "semestre" : "ano"}.`),
+        bullet("A formação inclui phishing, passwords, utilização aceitável, classificação da informação e como reportar incidentes."),
+        bullet("A participação é registada (lista de colaboradores e evidência da sessão)."),
+      ]),
 
     // --- 15 ---
     h1("15. Cumprimento e revisão"),

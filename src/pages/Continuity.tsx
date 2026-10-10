@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Plus, Download, CheckCircle2, AlertTriangle, XCircle, Clock, Paperclip, X, CalendarClock, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import StaffTab from "@/components/StaffTab";
+import PlanoManutencao from "@/components/PlanoManutencao";
 
 const EVIDENCE_TYPES = [
   { value: "backup_check",      label: "Verificação de Backup" },
@@ -29,6 +30,10 @@ const EVIDENCE_TYPES = [
   { value: "physical_access_review", label: "Revisão de Acessos Físicos (chaves/alarme)" },
   { value: "media_disposal",    label: "Destruição de Suportes (discos/papel)" },
   { value: "training_session",  label: "Formação / Sensibilização" },
+  { value: "asset_review",      label: "Inventário do Parque Informático" },
+  { value: "config_review",     label: "Configuração de Segurança" },
+  { value: "supplier_review",   label: "Fornecedores e Acessos de Terceiros" },
+  { value: "contacts_review",   label: "Contactos de Emergência" },
   { value: "other",             label: "Outro" },
 ];
 
@@ -39,6 +44,7 @@ const FREQUENCIES = [
   { value: "quarterly",  label: "Trimestral" },
   { value: "semiannual", label: "Semestral" },
   { value: "annual",     label: "Anual" },
+  { value: "once",       label: "Única" },
 ];
 
 const RESULT_CONFIG = {
@@ -57,7 +63,13 @@ type Evidence = {
 type Task = {
   id: string; client_id: string; evidence_type: string; title: string;
   frequency: string; next_due: string; last_done: string | null; active: boolean; notes: string | null;
+  due_limit?: string | null; origem?: string;
 };
+
+/** Fim da janela de ±15 dias (a base de dados também o calcula em due_limit). */
+const limiteDe = (t: Task) => t.due_limit ?? new Date(new Date(t.next_due).getTime() + 15 * 864e5).toISOString().split("T")[0];
+const inicioJanela = (t: Task) => new Date(new Date(t.next_due).getTime() - 15 * 864e5).toISOString().split("T")[0];
+const fmt = (d: string) => new Date(d).toLocaleDateString("pt-PT");
 
 export default function Continuity() {
   const { id: clientId } = useParams();
@@ -155,14 +167,8 @@ export default function Continuity() {
       });
       if (error) throw error;
 
-      // Se OK, actualizar next_due da tarefa correspondente
-      const matchingTask = tasks.find(t => t.evidence_type === evType);
-      if (matchingTask) {
-        const { data: nextDue } = await supabase.rpc("next_due_from_frequency", {
-          base_date: evDate, freq: matchingTask.frequency, // usa a frequência da tarefa, não do form
-        });
-        await supabase.from("client_tasks").update({ last_done: evDate, next_due: nextDue }).eq("id", matchingTask.id);
-      }
+      // A tarefa do mesmo tipo avança sozinha na base de dados (trigger tarefa_registar_prova),
+      // com a janela de ±15 dias e sem as datas escorregarem. Provas com falha não avançam.
 
       toast.success("Evidência registada.");
       const { data } = await supabase.from("client_evidences").select("*").eq("client_id", clientId).order("evidence_date", { ascending: false });
@@ -216,17 +222,17 @@ export default function Continuity() {
     }
   };
 
-  const handleMarkDone = async (task: Task) => {
-    const today = new Date().toISOString().split("T")[0];
-    const { data: nextDue } = await supabase.rpc("next_due_from_frequency", { base_date: today, freq: task.frequency });
-    await supabase.from("client_tasks").update({ last_done: today, next_due: nextDue }).eq("id", task.id);
-    // Abrir formulário de evidência pré-preenchido
+  // Abre o formulário de prova pré-preenchido; a tarefa só avança quando a prova é guardada.
+  const handleMarkDone = (task: Task) => {
     setEvType(task.evidence_type);
     setEvTitle(task.title);
-    setEvDate(today);
+    setEvDate(new Date().toISOString().split("T")[0]);
     setEvOpen(true);
+  };
+
+  const recarregarTarefas = async () => {
     const { data } = await supabase.from("client_tasks").select("*").eq("client_id", clientId).eq("active", true).order("next_due");
-    setTasks(data ?? []);
+    setTasks((data as Task[]) ?? []);
   };
 
   const generateReport = async () => {
@@ -254,8 +260,9 @@ export default function Continuity() {
   };
 
   const today = new Date().toISOString().split("T")[0];
-  const overdueTasks = tasks.filter(t => t.next_due < today);
-  const upcomingTasks = tasks.filter(t => t.next_due >= today);
+  const overdueTasks = tasks.filter(t => limiteDe(t) < today);
+  const windowTasks = tasks.filter(t => limiteDe(t) >= today && inicioJanela(t) <= today);
+  const upcomingTasks = tasks.filter(t => inicioJanela(t) > today);
 
   if (loading) return <p className="text-muted-foreground p-6">A carregar...</p>;
 
@@ -341,9 +348,11 @@ export default function Continuity() {
 
         {/* ── AGENDA ─────────────────────────────────────────── */}
         <TabsContent value="agenda" className="space-y-4">
+          {clientId && <PlanoManutencao clientId={clientId} onAplicado={recarregarTarefas} />}
+
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={handleSeedDefaults} disabled={seeding}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${seeding ? "animate-spin" : ""}`} /> Tarefas recomendadas
+              <RefreshCw className={`h-4 w-4 mr-2 ${seeding ? "animate-spin" : ""}`} /> Repor tarefas do plano
             </Button>
             <Button onClick={() => setTaskOpen(true)}>
               <Plus className="h-4 w-4 mr-2" /> Nova tarefa recorrente
@@ -357,9 +366,26 @@ export default function Continuity() {
                 <div key={t.id} className="flex items-center justify-between p-3 rounded-lg border border-red-200 bg-red-50">
                   <div>
                     <p className="font-medium text-sm">{t.title}</p>
-                    <p className="text-xs text-red-600">Previsto para {new Date(t.next_due).toLocaleDateString("pt-PT")} · {FREQUENCIES.find(f=>f.value===t.frequency)?.label}</p>
+                    <p className="text-xs text-red-600">Previsto para {fmt(t.next_due)} · prazo terminou a {fmt(limiteDe(t))} · {FREQUENCIES.find(f=>f.value===t.frequency)?.label}</p>
                   </div>
                   <Button size="sm" variant="outline" className="border-red-300" onClick={() => handleMarkDone(t)}>
+                    <CheckCircle2 className="h-4 w-4 mr-1" /> Registar
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {windowTasks.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-amber-700">A fazer agora (dentro da janela de ±15 dias)</p>
+              {windowTasks.map(t => (
+                <div key={t.id} className="flex items-center justify-between p-3 rounded-lg border border-amber-200 bg-amber-50">
+                  <div>
+                    <p className="font-medium text-sm">{t.title}</p>
+                    <p className="text-xs text-amber-700">Previsto {fmt(t.next_due)} · conta até {fmt(limiteDe(t))} · {FREQUENCIES.find(f=>f.value===t.frequency)?.label}</p>
+                  </div>
+                  <Button size="sm" variant="outline" className="border-amber-300" onClick={() => handleMarkDone(t)}>
                     <CheckCircle2 className="h-4 w-4 mr-1" /> Registar
                   </Button>
                 </div>

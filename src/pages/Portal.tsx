@@ -166,7 +166,7 @@ export default function Portal() {
                 patch_update: "Patches", log_review: "Revisão de Logs",
                 vuln_scan: "Scan de Vulnerabilidades", access_review: "Revisão de Acessos",
                 phishing_campaign: "Campanha de Phishing", ssl_renewal: "SSL",
-                dossier_review: "Revisão do Dossier", incident: "Incidente", physical_access_review: "Revisão de Acessos Físicos", media_disposal: "Destruição de Suportes", training_session: "Formação / Sensibilização", other: "Outro",
+                dossier_review: "Revisão do Dossier", incident: "Incidente", physical_access_review: "Revisão de Acessos Físicos", media_disposal: "Destruição de Suportes", training_session: "Formação / Sensibilização", asset_review: "Inventário do Parque Informático", config_review: "Configuração de Segurança", supplier_review: "Fornecedores e Acessos de Terceiros", contacts_review: "Contactos de Emergência", other: "Outro",
               };
               const resultColors: Record<string, string> = {
                 ok: "text-green-600", warning: "text-amber-600", fail: "text-red-600", pending: "text-gray-400",

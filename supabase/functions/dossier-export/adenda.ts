@@ -28,13 +28,13 @@ export interface AdendaInput {
 }
 
 const NIVEIS: Record<NivelServico, { nome: string; resumo: string }> = {
-  1: { nome: "Nível 1 — Relatórios", resumo: "Recolha automática e entrega dos relatórios mensais e trimestrais, registados no dossier como prova." },
+  1: { nome: "Nível 1 — Relatórios", resumo: "Recolha automática e entrega dos relatórios periódicos, registados no dossier como prova." },
   2: { nome: "Nível 2 — Monitorização", resumo: "Nível 1 + acompanhamento regular dos alertas pela VRCF em dias úteis. Sem vigilância permanente nem resposta em tempo real." },
   3: { nome: "Nível 3 — Monitorização com resposta remota", resumo: "Nível 2 + notificação imediata dos alertas graves e primeira resposta remota em dias úteis, no horário do Prestador, sem tempos garantidos." },
 };
 
 const FREQ: Record<string, string> = {
-  weekly: "Semanal", biweekly: "Quinzenal", monthly: "Mensal", quarterly: "Trimestral", semiannual: "Semestral", annual: "Anual",
+  weekly: "Semanal", biweekly: "Quinzenal", monthly: "Mensal", quarterly: "Trimestral", semiannual: "Semestral", annual: "Anual", once: "Única",
 };
 
 const TIPO: Record<string, string> = {
@@ -42,7 +42,8 @@ const TIPO: Record<string, string> = {
   log_review: "Revisão de registos", vuln_scan: "Análise de vulnerabilidades", access_review: "Revisão de acessos",
   phishing_campaign: "Campanha de phishing", ssl_renewal: "Renovação SSL", dossier_review: "Revisão do dossier",
   incident: "Incidente", physical_access_review: "Revisão de acessos físicos", media_disposal: "Destruição de suportes",
-  training_session: "Formação", other: "Outro",
+  training_session: "Formação", asset_review: "Inventário do parque", config_review: "Configuração de segurança",
+  supplier_review: "Fornecedores", contacts_review: "Contactos de emergência", other: "Outro",
 };
 
 export function buildAdendaDoc(input: AdendaInput): Document {
@@ -65,6 +66,11 @@ export function buildAdendaDoc(input: AdendaInput): Document {
     bullet(`**Prestador (subcontratante):** ${P}${input.provider?.nif ? `, NIF ${input.provider.nif}` : ""}${contacto ? ` (${contacto})` : ""}.`),
     p("A presente adenda faz parte do contrato de prestação de serviços de informática celebrado entre as partes. Define o nível de serviço contratado, o que o Prestador garante e o que não garante, e regula o tratamento de dados pessoais que resulta do serviço, nos termos do artigo 28.º do Regulamento Geral sobre a Proteção de Dados (RGPD)."),
 
+    h1("Enquadramento"),
+    bullet("O Prestador é uma empresa de informática que presta suporte técnico a micro e pequenas empresas. Não é um centro de operações de segurança (SOC) nem presta serviços de vigilância permanente."),
+    bullet("O serviço VRCF Sentinela foi concebido para dar a estas empresas um nível de segurança razoável e proporcionado à sua dimensão, ao risco e ao custo que podem suportar, como prevê o artigo 32.º do RGPD («tendo em conta as técnicas mais avançadas, os custos de aplicação…»)."),
+    bullet("O seu objetivo é reduzir a probabilidade e o impacto de incidentes e produzir provas documentadas das medidas de segurança adotadas, não eliminar todo o risco, o que nenhum serviço consegue garantir."),
+
     h1("1. Objeto"),
     p("O Prestador instala nos computadores e servidores do Cliente um agente de monitorização de segurança (VRCF Sentinela), que recolhe eventos técnicos de segurança e os envia, de forma cifrada, para uma consola gerida pelo Prestador. Com essa informação, o Prestador produz relatórios periódicos e mantém o registo de provas de segurança do Cliente no dossier de cibersegurança, e, consoante o nível contratado, acompanha os alertas e responde remotamente."),
 
@@ -73,9 +79,11 @@ export function buildAdendaDoc(input: AdendaInput): Document {
     p(""),
     p("Nível 1 — Relatórios", { bold: true }),
     bullet("O agente recolhe a informação de forma automática e permanente."),
-    bullet("O Prestador analisa a informação do período e entrega um relatório mensal e um relatório trimestral, até ao dia ___ do mês seguinte."),
+    bullet("O Prestador analisa a informação do período e entrega os relatórios periódicos (mensais para servidores, trimestrais para postos de trabalho), com a periodicidade definida no plano de manutenção periódica (Anexo III)."),
     bullet("Os relatórios entregues ficam registados no dossier de cibersegurança do Cliente como prova, bloqueados contra alterações e com impressão digital (SHA-256)."),
     bullet("**Os alertas não são acompanhados à medida que acontecem:** são analisados na preparação do relatório."),
+    p("O Cliente declara que foi informado de que existem serviços de segurança mais abrangentes (por exemplo, vigilância permanente 24 horas por dia, deteção e resposta geridas por um centro de operações de segurança), com custos superiores, e que escolheu o nível assinalado, adequado à sua dimensão e orçamento.", { bold: true }),
+    p("Em todos os níveis, o Prestador pode, por iniciativa própria, usar a informação recolhida para antecipar problemas e intervir de forma preventiva. Essas intervenções são feitas no interesse do Cliente e não criam, nem alargam, qualquer obrigação de vigilância ou de resposta além do nível contratado.", { italics: true }),
     p("Nível 2 — Monitorização", { bold: true }),
     bullet("Tudo o que inclui o Nível 1."),
     bullet("O Prestador consulta os alertas da consola com regularidade, em dias úteis e dentro do seu horário de funcionamento, e informa o Cliente das situações relevantes, com recomendações."),
@@ -88,12 +96,12 @@ export function buildAdendaDoc(input: AdendaInput): Document {
     bullet("**Fora desse horário não há resposta garantida.** A reparação, a recuperação de dados, a reinstalação e a investigação forense não estão incluídas e são orçamentadas à parte, salvo acordo escrito."),
 
     h1("3. O que o Prestador garante"),
-    p("Em todos os níveis, o Prestador garante:"),
+    p("Os compromissos de manutenção e de prova do Prestador são os do plano de manutenção periódica do dossier de cibersegurança do Cliente (Anexo III), com as medidas de segurança nele definidas. Esta adenda não os altera. Em todos os níveis, o Prestador garante ainda:"),
     bullet("a instalação, a configuração e a manutenção do agente nos equipamentos indicados pelo Cliente, incluindo a reposição automática dos componentes de recolha quando são parados ou removidos;"),
     bullet("a atualização periódica da consola: regras de deteção, listas de programas e de ameaças conhecidas e verificações de configuração;"),
     bullet("a conservação dos registos pelos prazos do ponto 9 e uma cópia de arquivo de longo prazo;"),
     bullet("a entrega dos relatórios nos prazos do nível contratado e o seu registo no dossier como prova;"),
-    bullet("a realização e o registo no dossier das provas do plano acordado (Anexo III), como verificações de backup e testes de restauro, nas periodicidades indicadas;"),
+    bullet("a realização e o registo no dossier das provas do plano de manutenção periódica (Anexo III), como verificações de backup e testes de restauro, nas periodicidades indicadas;"),
     bullet("a confidencialidade da informação e as medidas de segurança do ponto 11."),
 
     h1("4. O que o Prestador não garante"),
@@ -220,8 +228,8 @@ export function buildAdendaDoc(input: AdendaInput): Document {
 
   // --- Anexo III ---
   children.push(
-    h1("Anexo III — Plano de provas", true),
-    p("Provas que o Prestador realiza e regista no dossier de cibersegurança do Cliente, com a periodicidade indicada. Os relatórios do VRCF Sentinela são registados automaticamente como «Revisão de registos»."),
+    h1("Anexo III — Plano de manutenção periódica", true),
+    p("Tarefas que o Prestador realiza e regista como prova no dossier de cibersegurança do Cliente (Continuidade), com a periodicidade indicada, conforme o plano em vigor à data da assinatura. Os relatórios do VRCF Sentinela são registados automaticamente como «Revisão de registos»."),
   );
   if (tarefas.length > 0) {
     children.push(table(["Prova", "Tipo", "Periodicidade"], [4400, 2800, 1800],
@@ -233,7 +241,7 @@ export function buildAdendaDoc(input: AdendaInput): Document {
       ["", "", ""], ["", "", ""], ["", "", ""],
     ]));
   }
-  children.push(p(""), p("Alterações a este plano são acordadas por escrito (incluindo email) e passam a fazer parte desta adenda."));
+  children.push(p(""), p("Alterações a este plano são acordadas por escrito (incluindo email) e registadas no dossier; a versão mais recente do plano no dossier prevalece sobre esta lista."));
 
   return new Document({
     styles: { default: { document: { run: { font: "Calibri", size: 21 } } } },

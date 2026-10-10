@@ -23,7 +23,7 @@ const TYPE_LABELS: Record<string, string> = {
   patch_update: "Patches / Actualizações", log_review: "Revisão de Logs",
   vuln_scan: "Scan de Vulnerabilidades", access_review: "Revisão de Acessos",
   phishing_campaign: "Campanha de Phishing", ssl_renewal: "Renovação SSL",
-  dossier_review: "Revisão do Dossier", incident: "Incidente", physical_access_review: "Revisão de Acessos Físicos", media_disposal: "Destruição de Suportes", training_session: "Formação / Sensibilização", other: "Outro",
+  dossier_review: "Revisão do Dossier", incident: "Incidente", physical_access_review: "Revisão de Acessos Físicos", media_disposal: "Destruição de Suportes", training_session: "Formação / Sensibilização", asset_review: "Inventário do Parque Informático", config_review: "Configuração de Segurança", supplier_review: "Fornecedores e Acessos de Terceiros", contacts_review: "Contactos de Emergência", other: "Outro",
 };
 
 async function sendEmail(to: string, subject: string, html: string) {
@@ -172,7 +172,7 @@ Deno.serve(async (req: Request) => {
     const dateStr = new Date().toLocaleDateString("pt-PT", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
     const { data: overdueAll } = await sb.from("client_tasks")
-      .select("*, clients(name, id)").eq("active", true).lt("next_due", today).order("next_due");
+      .select("*, clients(name, id)").eq("active", true).lt("due_limit", today).order("next_due");
 
     const { data: tomorrowAll } = await sb.from("client_tasks")
       .select("*, clients(name, id)").eq("active", true).eq("next_due", tomorrow);

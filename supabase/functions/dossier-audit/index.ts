@@ -48,6 +48,30 @@ Para "status":
 
 Sê específico e directo — não faças observações genéricas. Cada issue deve apontar algo concreto que falta ou está errado.`;
 
+/** Só a equipa (não contas de cliente), com conta aprovada e, quando indicado, com acesso ao dossier/cliente. */
+async function exigirEquipa(sb: any, userId: string, o: { dossierId?: string | null; clientId?: string | null } = {}): Promise<string | null> {
+  const [{ data: papel }, { data: perfil }] = await Promise.all([
+    sb.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
+    sb.from("profiles").select("is_approved").eq("user_id", userId).maybeSingle(),
+  ]);
+  if (!perfil?.is_approved) return "Conta não aprovada.";
+  if (!papel || papel.role === "cliente") return "Só a equipa tem acesso a esta função.";
+  if (o.dossierId) {
+    const { data: ok } = await sb.rpc("can_access_dossier", { _user_id: userId, _dossier_id: o.dossierId });
+    if (!ok) return "Sem acesso a este dossier.";
+  }
+  if (o.clientId && papel.role !== "admin") {
+    const { data: ds } = await sb.from("dossiers").select("id").eq("client_id", o.clientId);
+    let ok = false;
+    for (const d of ds ?? []) {
+      const { data } = await sb.rpc("can_access_dossier", { _user_id: userId, _dossier_id: d.id });
+      if (data) { ok = true; break; }
+    }
+    if (!ok) return "Sem acesso a este cliente.";
+  }
+  return null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
@@ -60,6 +84,7 @@ Deno.serve(async (req: Request) => {
     if (authErr || !user) return new Response(JSON.stringify({ error: "Sessão inválida." }), { status: 401, headers: cors });
 
     const { dossierId } = await req.json();
+    { const e = await exigirEquipa(sb, user.id, { dossierId }); if (e) return new Response(JSON.stringify({ error: e }), { status: 403, headers: cors }); }
     if (!dossierId) return new Response(JSON.stringify({ error: "dossierId obrigatório." }), { status: 400, headers: cors });
 
     // Buscar dossier + secções + factos
@@ -93,7 +118,7 @@ Deno.serve(async (req: Request) => {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: Deno.env.get("ANTHROPIC_MODEL") || "claude-sonnet-5-5",
         max_tokens: 4000,
         system: SYSTEM_AUDIT,
         messages: [{ role: "user", content: prompt }],

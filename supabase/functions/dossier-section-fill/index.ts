@@ -13,6 +13,30 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/** Só a equipa (não contas de cliente), com conta aprovada e, quando indicado, com acesso ao dossier/cliente. */
+async function exigirEquipa(sb: any, userId: string, o: { dossierId?: string | null; clientId?: string | null } = {}): Promise<string | null> {
+  const [{ data: papel }, { data: perfil }] = await Promise.all([
+    sb.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
+    sb.from("profiles").select("is_approved").eq("user_id", userId).maybeSingle(),
+  ]);
+  if (!perfil?.is_approved) return "Conta não aprovada.";
+  if (!papel || papel.role === "cliente") return "Só a equipa tem acesso a esta função.";
+  if (o.dossierId) {
+    const { data: ok } = await sb.rpc("can_access_dossier", { _user_id: userId, _dossier_id: o.dossierId });
+    if (!ok) return "Sem acesso a este dossier.";
+  }
+  if (o.clientId && papel.role !== "admin") {
+    const { data: ds } = await sb.from("dossiers").select("id").eq("client_id", o.clientId);
+    let ok = false;
+    for (const d of ds ?? []) {
+      const { data } = await sb.rpc("can_access_dossier", { _user_id: userId, _dossier_id: d.id });
+      if (data) { ok = true; break; }
+    }
+    if (!ok) return "Sem acesso a este cliente.";
+  }
+  return null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
 
@@ -28,6 +52,7 @@ Deno.serve(async (req: Request) => {
     if (!profile?.is_approved) return new Response(JSON.stringify({ error: "Conta não aprovada." }), { status: 403, headers: cors });
 
     const { dossierId, sectionId, sectionName, sectionNumber, notes, clientName, attachments } = await req.json();
+    { const e = await exigirEquipa(sb, user.id, { dossierId }); if (e) return new Response(JSON.stringify({ error: e }), { status: 403, headers: cors }); }
     const attachmentList: { name: string; mediaType: string; base64: string }[] = Array.isArray(attachments) ? attachments : [];
 
     if (!sectionId || (!notes?.trim() && attachmentList.length === 0)) {
@@ -83,7 +108,7 @@ Redige o conteúdo final desta secção, em português europeu, pronto a incluir
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY!, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 3000, messages: [{ role: "user", content: userContent }] }),
+      body: JSON.stringify({ model: Deno.env.get("ANTHROPIC_MODEL") || "claude-sonnet-5-5", max_tokens: 3000, messages: [{ role: "user", content: userContent }] }),
     });
 
     if (!res.ok) {

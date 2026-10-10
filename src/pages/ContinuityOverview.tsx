@@ -17,7 +17,7 @@ const TYPE_LABELS: Record<string, string> = {
   ssl_renewal: "SSL",
   dossier_review: "Revisão Dossier",
   incident: "Incidente",
-  physical_access_review: "Revisão Acessos Físicos", media_disposal: "Destruição Suportes", training_session: "Formação",
+  physical_access_review: "Revisão Acessos Físicos", media_disposal: "Destruição Suportes", training_session: "Formação", asset_review: "Parque Informático", config_review: "Configuração de Segurança", supplier_review: "Fornecedores", contacts_review: "Contactos de Emergência",
   other: "Outro",
 };
 
@@ -41,12 +41,12 @@ export default function ContinuityOverview() {
       supabase.from("client_tasks")
         .select("*, clients(name)")
         .eq("active", true)
-        .lt("next_due", today)
+        .lt("due_limit", today)
         .order("next_due"),
       supabase.from("client_tasks")
         .select("*, clients(name)")
         .eq("active", true)
-        .gte("next_due", today)
+        .gte("due_limit", today)
         .lte("next_due", in14)
         .order("next_due"),
     ]).then(([ov, up]) => {

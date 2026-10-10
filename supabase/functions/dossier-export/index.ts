@@ -278,7 +278,7 @@ Deno.serve(async (req: Request) => {
         supabaseClient.from("dossier_sections").select("section_number, section_status, is_completed, ai_generated_content").eq("dossier_id", dossierId),
         supabaseClient.from("company_settings").select("name, email, phone").limit(1).maybeSingle(),
         supabaseClient.from("client_evidences").select("evidence_type, evidence_date, result").eq("client_id", clientId),
-        supabaseClient.from("client_tasks").select("evidence_type, active").eq("client_id", clientId),
+        supabaseClient.from("client_tasks").select("evidence_type, active, frequency").eq("client_id", clientId),
         supabaseClient.from("client_staff").select("name, active, policy_ack_signed_at, confidentiality_signed_at, last_training_at").eq("client_id", clientId).order("name"),
       ]);
       doc = buildPolicyDoc({
@@ -288,6 +288,7 @@ Deno.serve(async (req: Request) => {
         evidences: (evidences as any[]) ?? [],
         tasks: (tasks as any[]) ?? [],
         staff: (staff as any[]) ?? [],
+        planOptions: (client as any)?.opcoes_plano ?? null,
       });
       filename = `Politica_Seguranca_${(client?.name ?? "cliente").replace(/\s+/g, "_")}.docx`;
     } else {

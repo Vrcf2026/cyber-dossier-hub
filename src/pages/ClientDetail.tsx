@@ -38,7 +38,7 @@ export default function ClientDetail() {
     supabase.from("clients").select("*").eq("id", id).single().then(({ data }) => setClient(data));
     supabase.from("dossiers").select("*").eq("client_id", id).order("created_at", { ascending: false }).then(({ data }) => setDossiers(data ?? []));
     const today = new Date().toISOString().split("T")[0];
-    supabase.from("client_tasks").select("id").eq("client_id", id).eq("active", true).lt("next_due", today)
+    supabase.from("client_tasks").select("id").eq("client_id", id).eq("active", true).lt("due_limit", today)
       .then(({ data }) => setOverdueTasks(data?.length ?? 0));
     supabase.from("client_evidences").select("evidence_date").eq("client_id", id).eq("evidence_type", "backup_check")
       .order("evidence_date", { ascending: false }).limit(1)

@@ -36,7 +36,7 @@ export default function Dashboard() {
       supabase.from("dossiers").select("*, clients(name)").order("created_at", { ascending: false }).limit(5),
       supabase.from("phishing_campaign_results").select("attempts"),
       supabase.from("client_tasks").select("id, title, next_due, evidence_type, clients(name, id)")
-        .eq("active", true).lt("next_due", today).order("next_due").limit(10),
+        .eq("active", true).lt("due_limit", today).order("next_due").limit(10),
       supabase.from("dossiers").select("id").eq("intake_completed", false),
     ]);
 
@@ -62,7 +62,7 @@ export default function Dashboard() {
     backup_check: "Backup", restore_test: "Restauro", patch_update: "Patches",
     log_review: "Logs", vuln_scan: "Scan", access_review: "Acessos",
     phishing_campaign: "Phishing", ssl_renewal: "SSL", dossier_review: "Dossier",
-    incident: "Incidente", physical_access_review: "Acessos físicos", media_disposal: "Destruição", training_session: "Formação", other: "Outro",
+    incident: "Incidente", physical_access_review: "Acessos físicos", media_disposal: "Destruição", training_session: "Formação", asset_review: "Parque informático", config_review: "Configuração", supplier_review: "Fornecedores", contacts_review: "Contactos emergência", other: "Outro",
   };
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString("pt-PT");
