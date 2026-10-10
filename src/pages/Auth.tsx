@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Marca } from "@/components/Marca";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,7 +42,12 @@ export default function Auth() {
       <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.05] [background-image:linear-gradient(hsl(var(--sidebar-foreground))_1px,transparent_1px),linear-gradient(90deg,hsl(var(--sidebar-foreground))_1px,transparent_1px)] [background-size:44px_44px]" />
       <div aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-sidebar-primary/20 blur-[120px]" />
       <div className="relative w-full max-w-md">
-      <Marca escuro className="mb-8" />
+      <div className="mb-8 flex flex-col items-center gap-3">
+        <div className="rounded-2xl bg-white px-5 py-3 shadow-elevada">
+          <img src="/marca/logo-vrcf.png" alt="VRCF Informática & Segurança" className="h-14 w-auto" />
+        </div>
+        <span className="font-display text-sm font-medium text-sidebar-foreground/80">CyberDossier</span>
+      </div>
       <Card className="w-full rounded-2xl shadow-elevada">
         <CardHeader>
           <CardTitle className="text-xl">Iniciar sessão</CardTitle>
