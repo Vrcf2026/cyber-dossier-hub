@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { HardDrive, RefreshCw, Cloud, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { RefreshCw, Cloud, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 
 type BackupSettings = {
   id: string;
@@ -197,11 +197,10 @@ export default function Backups() {
   const StatusIcon = statusInfo.icon;
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
+    <div className="space-y-6 max-w-3xl">
       <div className="flex items-center gap-3">
-        <HardDrive className="h-7 w-7 text-primary" />
         <div>
-          <h1 className="text-2xl font-bold text-primary">Backups & Segurança</h1>
+          <h2 className="text-2xl font-bold text-foreground">Backups & Segurança</h2>
           <p className="text-sm text-muted-foreground">
             Configuração de backups automáticos semanais para o Google Drive.
           </p>
@@ -326,7 +325,7 @@ export default function Backups() {
           <CardTitle className="text-base">Como configurar o Google Drive</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-2">
-          <p>Os backups usam a <strong>ligação directa à tua conta Google Drive</strong> (autorização OAuth feita no Lovable). Não é necessária qualquer Service Account nem chave JSON.</p>
+          <p>Os backups usam a <strong>ligação directa à tua conta Google Drive</strong> (autorizada uma vez nas ligações do projeto). Não é necessária qualquer Service Account nem chave JSON.</p>
           <ol className="list-decimal list-inside space-y-1 ml-2">
             <li>Confirma que a ligação <strong>Google Drive</strong> está activa nos conectores do projeto.</li>
             <li>Opcional: cria no teu Drive uma pasta para os backups.</li>

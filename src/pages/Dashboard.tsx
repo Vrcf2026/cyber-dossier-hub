@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { diasEmAtraso, hojeISO } from "@/lib/prazos";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,15 +29,18 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     setLoading(true);
-    const today = new Date().toISOString().split("T")[0];
+    const today = hojeISO();
 
-    const [dossiers, clients, recent, phishingResults, overdueTasks, intakePending] = await Promise.all([
+    const [dossiers, clients, recent, phishingResults, overdueTasks, overdueCount, intakePending] = await Promise.all([
       supabase.from("dossiers").select("id, status"),
       supabase.from("clients").select("id"),
       supabase.from("dossiers").select("*, clients(name)").order("created_at", { ascending: false }).limit(5),
       supabase.from("phishing_campaign_results").select("attempts"),
-      supabase.from("client_tasks").select("id, title, next_due, evidence_type, clients(name, id)")
-        .eq("active", true).lt("due_limit", today).order("next_due").limit(10),
+      supabase.from("client_tasks").select("id, title, next_due, due_limit, evidence_type, clients(name, id)")
+        .eq("active", true).lt("due_limit", today).order("due_limit").limit(10),
+      // Contagem à parte: a lista acima só traz as 10 mais atrasadas.
+      supabase.from("client_tasks").select("id", { count: "exact", head: true })
+        .eq("active", true).lt("due_limit", today),
       supabase.from("dossiers").select("id").eq("intake_completed", false),
     ]);
 
@@ -50,7 +54,7 @@ export default function Dashboard() {
       completedDossiers: dossiers.data?.filter((d) => d.status === "concluido").length ?? 0,
       activeClients: clients.data?.length ?? 0,
       phishingClickRate: clickRate,
-      overdueTasks: overdueTasks.data?.length ?? 0,
+      overdueTasks: overdueCount.count ?? overdueTasks.data?.length ?? 0,
       intakePending: intakePending.data?.length ?? 0,
     });
     setRecentDossiers(recent.data ?? []);
@@ -75,7 +79,7 @@ export default function Dashboard() {
       {!loading && (metrics.overdueTasks > 0 || metrics.intakePending > 0) && (
         <div className="space-y-2">
           {metrics.overdueTasks > 0 && (
-            <div className="flex items-center justify-between p-3 rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20">
+            <div className="flex items-center justify-between p-3 rounded-lg border border-red-200 bg-red-50 dark:border-red-900/60 dark:bg-red-950/20">
               <div className="flex items-center gap-3">
                 <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
                 <div>
@@ -85,13 +89,13 @@ export default function Dashboard() {
                   <p className="text-xs text-red-600 dark:text-red-400">Clica para ver e registar as evidências</p>
                 </div>
               </div>
-              <Button size="sm" variant="outline" className="border-red-300 shrink-0" onClick={() => navigate("/continuidade")}>
+              <Button size="sm" variant="outline" className="border-red-300 dark:border-red-900 shrink-0" onClick={() => navigate("/continuidade")}>
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
           )}
           {metrics.intakePending > 0 && (
-            <div className="flex items-center justify-between p-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+            <div className="flex items-center justify-between p-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/20">
               <div className="flex items-center gap-3">
                 <ClipboardCheck className="h-5 w-5 text-amber-600 shrink-0" />
                 <div>
@@ -101,7 +105,7 @@ export default function Dashboard() {
                   <p className="text-xs text-amber-600 dark:text-amber-400">Informação por recolher — secções por preencher</p>
                 </div>
               </div>
-              <Button size="sm" variant="outline" className="border-amber-300 shrink-0" onClick={() => navigate("/dossiers")}>
+              <Button size="sm" variant="outline" className="border-amber-300 dark:border-amber-900 shrink-0" onClick={() => navigate("/dossiers")}>
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
@@ -161,14 +165,14 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-2">
                 {overdueList.map((t: any) => {
-                  const daysLate = Math.ceil((Date.now() - new Date(t.next_due).getTime()) / 864e5);
+                  const daysLate = diasEmAtraso(t);
                   return (
-                    <div key={t.id} className="flex items-center justify-between p-2 rounded border border-red-100 bg-red-50/50 dark:bg-red-950/10 cursor-pointer"
+                    <div key={t.id} className="flex items-center justify-between p-2 rounded-lg border border-red-100 bg-red-50/50 hover:bg-red-50 dark:border-red-900/40 dark:bg-red-950/10 dark:hover:bg-red-950/30 cursor-pointer transition-colors"
                       onClick={() => navigate(`/clientes/${t.clients?.id}/continuidade`)}>
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{t.title}</p>
                         <p className="text-xs text-muted-foreground">
-                          {t.clients?.name} · <span className="text-red-600">{daysLate}d em atraso</span>
+                          {t.clients?.name} · <span className="text-red-600 dark:text-red-400">{daysLate}d em atraso</span>
                           {" · "}{TYPE_LABELS[t.evidence_type] ?? t.evidence_type}
                         </p>
                       </div>

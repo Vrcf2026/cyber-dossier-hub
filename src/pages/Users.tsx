@@ -100,7 +100,7 @@ export default function Users() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-primary">Utilizadores</h2>
+          <h2 className="text-2xl font-bold text-foreground">Utilizadores</h2>
           <p className="text-sm text-muted-foreground">
             Só o administrador cria contas. Técnicos veem apenas os dossiers atribuídos; clientes só o relatório final.
           </p>

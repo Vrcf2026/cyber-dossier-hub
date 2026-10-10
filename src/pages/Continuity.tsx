@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { formatarData, textoProxima } from "@/lib/prazos";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -368,12 +369,12 @@ export default function Continuity() {
             <div className="space-y-2">
               <p className="text-sm font-semibold text-red-600">Em atraso</p>
               {overdueTasks.map(t => (
-                <div key={t.id} className="flex items-center justify-between p-3 rounded-lg border border-red-200 bg-red-50">
+                <div key={t.id} className="flex items-center justify-between p-3 rounded-lg border border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/15">
                   <div>
                     <p className="font-medium text-sm">{t.title}</p>
-                    <p className="text-xs text-red-600">Previsto para {fmt(t.next_due)} · prazo terminou a {fmt(limiteDe(t))} · {FREQUENCIES.find(f=>f.value===t.frequency)?.label}</p>
+                    <p className="text-xs text-red-600 dark:text-red-400">Previsto para {fmt(t.next_due)} · prazo terminou a {fmt(limiteDe(t))} · {FREQUENCIES.find(f=>f.value===t.frequency)?.label}</p>
                   </div>
-                  <Button size="sm" variant="outline" className="border-red-300" onClick={() => handleMarkDone(t)}>
+                  <Button size="sm" variant="outline" className="border-red-300 dark:border-red-900" onClick={() => handleMarkDone(t)}>
                     <CheckCircle2 className="h-4 w-4 mr-1" /> Registar
                   </Button>
                 </div>
@@ -385,12 +386,12 @@ export default function Continuity() {
             <div className="space-y-2">
               <p className="text-sm font-semibold text-amber-700">A fazer agora (dentro da janela de ±15 dias)</p>
               {windowTasks.map(t => (
-                <div key={t.id} className="flex items-center justify-between p-3 rounded-lg border border-amber-200 bg-amber-50">
+                <div key={t.id} className="flex items-center justify-between p-3 rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/15">
                   <div>
                     <p className="font-medium text-sm">{t.title}</p>
-                    <p className="text-xs text-amber-700">Previsto {fmt(t.next_due)} · conta até {fmt(limiteDe(t))} · {FREQUENCIES.find(f=>f.value===t.frequency)?.label}</p>
+                    <p className="text-xs text-amber-700 dark:text-amber-400">Previsto {fmt(t.next_due)} · conta até {fmt(limiteDe(t))} · {FREQUENCIES.find(f=>f.value===t.frequency)?.label}</p>
                   </div>
-                  <Button size="sm" variant="outline" className="border-amber-300" onClick={() => handleMarkDone(t)}>
+                  <Button size="sm" variant="outline" className="border-amber-300 dark:border-amber-900" onClick={() => handleMarkDone(t)}>
                     <CheckCircle2 className="h-4 w-4 mr-1" /> Registar
                   </Button>
                 </div>
@@ -402,13 +403,12 @@ export default function Continuity() {
             <div className="space-y-2">
               <p className="text-sm font-semibold text-muted-foreground">Próximas</p>
               {upcomingTasks.map(t => {
-                const daysLeft = Math.ceil((new Date(t.next_due).getTime() - Date.now()) / 864e5);
                 return (
                   <div key={t.id} className="flex items-center justify-between p-3 rounded-lg border">
                     <div>
                       <p className="font-medium text-sm">{t.title}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(t.next_due).toLocaleDateString("pt-PT")} ({daysLeft}d) · {FREQUENCIES.find(f=>f.value===t.frequency)?.label}
+                        {formatarData(t.next_due)} ({textoProxima(t)}) · {FREQUENCIES.find(f=>f.value===t.frequency)?.label}
                         {t.last_done && ` · Última vez: ${new Date(t.last_done).toLocaleDateString("pt-PT")}`}
                       </p>
                     </div>

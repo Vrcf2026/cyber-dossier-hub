@@ -180,7 +180,7 @@ export default function AuditLog() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-primary flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <ScrollText className="h-6 w-6" /> Registo de auditoria
           </h2>
           <p className="text-sm text-muted-foreground">

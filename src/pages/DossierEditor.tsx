@@ -409,12 +409,13 @@ export default function DossierEditor() {
         <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
       </Button>
 
-      <div className="flex items-start justify-between">
+      {/* Título numa linha própria e ações por baixo: com 5 botões ao lado, o título partia-se. */}
+      <div className="space-y-3">
         <div>
           <h2 className="text-2xl font-bold text-foreground">{dossier.title}</h2>
           <p className="text-muted-foreground">{client?.name}</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={() => navigate(`/dossiers/${id}/intake`)}>
             <MessageSquare className="h-4 w-4 mr-2" />
             {dossier.intake_completed ? "Continuar intake" : "Iniciar intake IA"}
@@ -430,7 +431,7 @@ export default function DossierEditor() {
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" disabled={exporting}>
+              <Button variant="outline" size="sm" disabled={exporting}>
                 <Download className="h-4 w-4 mr-2" /> {exporting ? "A gerar..." : "Exportar"}
               </Button>
             </DropdownMenuTrigger>
@@ -444,7 +445,7 @@ export default function DossierEditor() {
             </DropdownMenuContent>
           </DropdownMenu>
           <Select value={dossier.status} onValueChange={updateStatus}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-40 h-9 ml-auto" aria-label="Estado do dossier">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

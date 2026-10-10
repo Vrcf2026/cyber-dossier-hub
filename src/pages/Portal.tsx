@@ -97,7 +97,7 @@ export default function Portal() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-primary">Os meus relatórios</h2>
+        <h2 className="text-2xl font-bold text-foreground">Os meus relatórios</h2>
         <p className="text-sm text-muted-foreground">
           Consulta apenas. Para alterações, contacte a equipa técnica.
         </p>
