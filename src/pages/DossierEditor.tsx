@@ -16,6 +16,11 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { seccoesPorFechar } from "@/lib/entrega";
 import { getSectionDefinition } from "@/lib/dossierSections";
 import { logAudit } from "@/lib/audit";
 
@@ -46,6 +51,7 @@ export default function DossierEditor() {
   const [showAudit, setShowAudit] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
   const [atualizarOpen, setAtualizarOpen] = useState(false);
+  const [avisoEntrega, setAvisoEntrega] = useState<{ numero: number; nome: string }[] | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -63,6 +69,13 @@ export default function DossierEditor() {
     setSections(s ?? []);
   };
 
+  /** Versão do cliente: avisa antes se ainda houver secções visíveis por preencher. */
+  const pedirExportCliente = () => {
+    const falta = seccoesPorFechar(sections);
+    if (falta.length > 0) { setAvisoEntrega(falta); return; }
+    handleExport("cliente");
+  };
+
   const handleExport = async (variant: "cliente" | "tecnico" | "politica" | "adenda", nivel?: 1 | 2 | 3) => {
     setExporting(true);
     try {
@@ -72,7 +85,11 @@ export default function DossierEditor() {
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dossier-export?dossierId=${id}&variant=${variant}${nivel ? `&nivel=${nivel}` : ""}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      if (!res.ok) throw new Error("Falha ao gerar documento");
+      if (!res.ok) {
+        // Mostrar a razão dada pelo servidor (ex.: falta a verificação em dois passos).
+        const corpo = await res.json().catch(() => null);
+        throw new Error(corpo?.error || "Falha ao gerar o documento.");
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -85,8 +102,8 @@ export default function DossierEditor() {
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Documento gerado.");
-    } catch {
-      toast.error("Erro ao gerar o documento.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao gerar o documento.");
     } finally {
       setExporting(false);
     }
@@ -405,6 +422,27 @@ export default function DossierEditor() {
   return (
     <div className="space-y-6">
       {id && <AtualizacaoRapida dossierId={id} open={atualizarOpen} onOpenChange={setAtualizarOpen} onAplicado={fetchDossier} />}
+      <AlertDialog open={!!avisoEntrega} onOpenChange={(o) => !o && setAvisoEntrega(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Há secções por preencher</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm">
+                <p>Estas secções aparecem na versão do cliente e ainda não têm texto. No documento ficam com
+                  «Esta secção será completada na próxima revisão do dossier».</p>
+                <ul className="list-disc pl-5 text-foreground">
+                  {avisoEntrega?.map((s) => <li key={s.numero}>{s.numero}. {s.nome}</li>)}
+                </ul>
+                <p>Se uma delas não se aplica a este cliente, marque-a como N/A.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar e completar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setAvisoEntrega(null); handleExport("cliente"); }}>Exportar assim</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Button variant="ghost" onClick={() => navigate("/dossiers")}>
         <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
       </Button>
@@ -436,7 +474,7 @@ export default function DossierEditor() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => handleExport("cliente")}>Versão Cliente</DropdownMenuItem>
+              <DropdownMenuItem onClick={pedirExportCliente}>Versão Cliente</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleExport("tecnico")}>Versão Técnica</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleExport("politica")}>Política de Segurança</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleExport("adenda", 1)}>Adenda Sentinela — Nível 1 (relatórios)</DropdownMenuItem>
