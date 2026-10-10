@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,10 @@ type Task = {
   frequency: string; next_due: string; last_done: string | null; active: boolean; notes: string | null;
   due_limit?: string | null; origem?: string;
 };
+
+type EvidenceType = Database["public"]["Enums"]["evidence_type"];
+type EvidenceResult = Database["public"]["Enums"]["evidence_result"];
+type TaskFrequency = Database["public"]["Enums"]["task_frequency"];
 
 /** Fim da janela de ±15 dias (a base de dados também o calcula em due_limit). */
 const limiteDe = (t: Task) => t.due_limit ?? new Date(new Date(t.next_due).getTime() + 15 * 864e5).toISOString().split("T")[0];
@@ -156,8 +161,8 @@ export default function Continuity() {
       const { error } = await supabase.from("client_evidences").insert({
         client_id: clientId,
         dossier_id: evDossier || null,
-        evidence_type: evType,
-        result: evResult,
+        evidence_type: evType as EvidenceType,
+        result: evResult as EvidenceResult,
         title: evTitle.trim(),
         notes: evNotes.trim() || null,
         evidence_date: evDate,
@@ -188,8 +193,8 @@ export default function Continuity() {
     setSavingTask(true);
     try {
       const { error } = await supabase.from("client_tasks").insert({
-        client_id: clientId, evidence_type: taskType, title: taskTitle.trim(),
-        frequency: taskFreq, next_due: taskDue, notes: taskNotes.trim() || null,
+        client_id: clientId, evidence_type: taskType as EvidenceType, title: taskTitle.trim(),
+        frequency: taskFreq as TaskFrequency, next_due: taskDue, notes: taskNotes.trim() || null,
       });
       if (error) throw error;
       toast.success("Tarefa criada.");
