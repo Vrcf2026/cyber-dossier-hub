@@ -83,10 +83,7 @@ export default function AuditLog() {
   };
 
   // Construir query com filtros do lado do servidor — sem trazer tudo para memória
-  const buildQuery = (forCount = false) => {
-    let q = supabase.from("audit_logs")
-      .select(forCount ? "id" : "id, user_email, action, entity_type, dossier_id, details, created_at", forCount ? { count: "exact", head: true } : undefined);
-
+  const applyFilters = (q: any) => {
     if (group !== "todos") {
       if (group === "exportacao") q = q.ilike("action", "%export%");
       else if (group === "alteracao") q = q.or("action.ilike.%update%,action.ilike.%generate%");
@@ -96,18 +93,25 @@ export default function AuditLog() {
     if (dossierFilter !== "todos") q = q.eq("dossier_id", dossierFilter);
     if (dateFrom) q = q.gte("created_at", `${dateFrom}T00:00:00`);
     if (dateTo)   q = q.lte("created_at", `${dateTo}T23:59:59`);
-    // Pesquisa de texto — só em user_email (o resto precisaria de full-text; filtro local abaixo)
     if (search.trim()) q = q.ilike("user_email", `%${search.trim()}%`);
     return q;
   };
+
+  const countQuery = () =>
+    applyFilters(supabase.from("audit_logs").select("id", { count: "exact", head: true }));
+
+  const dataQuery = () =>
+    applyFilters(
+      supabase.from("audit_logs").select("id, user_email, action, entity_type, dossier_id, details, created_at")
+    );
 
   const load = async (targetPage = page) => {
     setLoading(true);
     const from = targetPage * PAGE_SIZE;
 
     const [countRes, dataRes] = await Promise.all([
-      buildQuery(true),
-      buildQuery(false).order("created_at", { ascending: false }).range(from, from + PAGE_SIZE - 1),
+      countQuery(),
+      dataQuery().order("created_at", { ascending: false }).range(from, from + PAGE_SIZE - 1),
     ]);
 
     setTotalCount(countRes.count ?? 0);
@@ -140,7 +144,7 @@ export default function AuditLog() {
 
   // Export usa query sem paginação (só para export)
   const fetchAllForExport = async () => {
-    const { data } = await buildQuery(false).order("created_at", { ascending: false }).limit(10000);
+    const { data } = await dataQuery().order("created_at", { ascending: false }).limit(10000);
     return (data ?? []) as Log[];
   };
 
