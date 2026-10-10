@@ -124,6 +124,75 @@ export type Database = {
         }
         Relationships: []
       }
+      client_evidences: {
+        Row: {
+          client_id: string
+          created_at: string
+          dossier_id: string | null
+          evidence_date: string
+          evidence_type: Database["public"]["Enums"]["evidence_type"]
+          external_id: string | null
+          file_name: string | null
+          file_path: string | null
+          id: string
+          notes: string | null
+          performed_by: string | null
+          result: Database["public"]["Enums"]["evidence_result"]
+          source: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          dossier_id?: string | null
+          evidence_date?: string
+          evidence_type: Database["public"]["Enums"]["evidence_type"]
+          external_id?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          notes?: string | null
+          performed_by?: string | null
+          result?: Database["public"]["Enums"]["evidence_result"]
+          source?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          dossier_id?: string | null
+          evidence_date?: string
+          evidence_type?: Database["public"]["Enums"]["evidence_type"]
+          external_id?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          id?: string
+          notes?: string | null
+          performed_by?: string | null
+          result?: Database["public"]["Enums"]["evidence_result"]
+          source?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_evidences_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_evidences_dossier_id_fkey"
+            columns: ["dossier_id"]
+            isOneToOne: false
+            referencedRelation: "dossiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_staff: {
         Row: {
           active: boolean
@@ -186,16 +255,74 @@ export type Database = {
           },
         ]
       }
+      client_tasks: {
+        Row: {
+          active: boolean
+          client_id: string
+          created_at: string
+          due_limit: string | null
+          evidence_type: Database["public"]["Enums"]["evidence_type"]
+          frequency: Database["public"]["Enums"]["task_frequency"]
+          id: string
+          last_done: string | null
+          next_due: string
+          notes: string | null
+          origem: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          client_id: string
+          created_at?: string
+          due_limit?: string | null
+          evidence_type: Database["public"]["Enums"]["evidence_type"]
+          frequency: Database["public"]["Enums"]["task_frequency"]
+          id?: string
+          last_done?: string | null
+          next_due: string
+          notes?: string | null
+          origem?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          client_id?: string
+          created_at?: string
+          due_limit?: string | null
+          evidence_type?: Database["public"]["Enums"]["evidence_type"]
+          frequency?: Database["public"]["Enums"]["task_frequency"]
+          id?: string
+          last_done?: string | null
+          next_due?: string
+          notes?: string | null
+          origem?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_tasks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           address: string | null
           contact_person: string | null
           created_at: string
+          dados_sensiveis: boolean
           email: string | null
           id: string
           name: string
           nif: string | null
           num_employees: string | null
+          opcoes_plano: Json
           phone: string | null
           sector: string | null
           updated_at: string
@@ -204,11 +331,13 @@ export type Database = {
           address?: string | null
           contact_person?: string | null
           created_at?: string
+          dados_sensiveis?: boolean
           email?: string | null
           id?: string
           name: string
           nif?: string | null
           num_employees?: string | null
+          opcoes_plano?: Json
           phone?: string | null
           sector?: string | null
           updated_at?: string
@@ -217,11 +346,13 @@ export type Database = {
           address?: string | null
           contact_person?: string | null
           created_at?: string
+          dados_sensiveis?: boolean
           email?: string | null
           id?: string
           name?: string
           nif?: string | null
           num_employees?: string | null
+          opcoes_plano?: Json
           phone?: string | null
           sector?: string | null
           updated_at?: string
@@ -412,6 +543,7 @@ export type Database = {
           is_completed: boolean
           section_name: string
           section_number: number
+          section_status: string
           updated_at: string
         }
         Insert: {
@@ -424,6 +556,7 @@ export type Database = {
           is_completed?: boolean
           section_name: string
           section_number: number
+          section_status?: string
           updated_at?: string
         }
         Update: {
@@ -436,6 +569,7 @@ export type Database = {
           is_completed?: boolean
           section_name?: string
           section_number?: number
+          section_status?: string
           updated_at?: string
         }
         Relationships: [
@@ -538,6 +672,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notification_settings: {
+        Row: {
+          alert_days_before: number
+          alert_on_overdue: boolean
+          created_at: string
+          daily_digest: boolean
+          email_alerts_enabled: boolean
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alert_days_before?: number
+          alert_on_overdue?: boolean
+          created_at?: string
+          daily_digest?: boolean
+          email_alerts_enabled?: boolean
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alert_days_before?: number
+          alert_on_overdue?: boolean
+          created_at?: string
+          daily_digest?: boolean
+          email_alerts_enabled?: boolean
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       phishing_campaigns: {
         Row: {
@@ -744,6 +911,7 @@ export type Database = {
       }
     }
     Functions: {
+      aplicar_plano_cliente: { Args: { p_client_id: string }; Returns: number }
       can_access_dossier: {
         Args: { _dossier_id: string; _user_id: string }
         Returns: boolean
@@ -757,10 +925,58 @@ export type Database = {
       }
       is_approved: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      next_due_from_frequency: {
+        Args: {
+          base_date: string
+          freq: Database["public"]["Enums"]["task_frequency"]
+        }
+        Returns: string
+      }
+      plano_cliente: {
+        Args: { p_client_id: string }
+        Returns: {
+          automatico: boolean
+          evidence_type: string
+          frequency: string
+          title: string
+        }[]
+      }
       purge_audit_logs: { Args: { _force?: boolean }; Returns: number }
+      seed_default_client_tasks: {
+        Args: { p_client_id: string }
+        Returns: number
+      }
     }
     Enums: {
       app_role: "admin" | "user" | "tecnico" | "cliente"
+      evidence_result: "ok" | "warning" | "fail" | "pending"
+      evidence_type:
+        | "backup_check"
+        | "restore_test"
+        | "patch_update"
+        | "log_review"
+        | "vuln_scan"
+        | "access_review"
+        | "phishing_campaign"
+        | "ssl_renewal"
+        | "dossier_review"
+        | "incident"
+        | "other"
+        | "physical_access_review"
+        | "media_disposal"
+        | "training_session"
+        | "asset_review"
+        | "config_review"
+        | "supplier_review"
+        | "contacts_review"
+      task_frequency:
+        | "weekly"
+        | "biweekly"
+        | "monthly"
+        | "quarterly"
+        | "semiannual"
+        | "annual"
+        | "once"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -889,6 +1105,36 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user", "tecnico", "cliente"],
+      evidence_result: ["ok", "warning", "fail", "pending"],
+      evidence_type: [
+        "backup_check",
+        "restore_test",
+        "patch_update",
+        "log_review",
+        "vuln_scan",
+        "access_review",
+        "phishing_campaign",
+        "ssl_renewal",
+        "dossier_review",
+        "incident",
+        "other",
+        "physical_access_review",
+        "media_disposal",
+        "training_session",
+        "asset_review",
+        "config_review",
+        "supplier_review",
+        "contacts_review",
+      ],
+      task_frequency: [
+        "weekly",
+        "biweekly",
+        "monthly",
+        "quarterly",
+        "semiannual",
+        "annual",
+        "once",
+      ],
     },
   },
 } as const
