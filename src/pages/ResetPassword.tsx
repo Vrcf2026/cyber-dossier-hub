@@ -47,7 +47,7 @@ export default function ResetPassword() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <Shield className="h-8 w-8 text-accent" />
+            <Shield className="h-8 w-8 text-primary" />
             <CardTitle className="text-2xl font-bold text-primary">CyberDossier</CardTitle>
           </div>
           <CardDescription>Definir nova palavra-passe</CardDescription>

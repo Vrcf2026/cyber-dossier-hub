@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { Marca } from "@/components/Marca";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Shield } from "lucide-react";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
@@ -38,14 +38,16 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Shield className="h-8 w-8 text-accent" />
-            <CardTitle className="text-2xl font-bold text-primary">CyberDossier</CardTitle>
-          </div>
-          <CardDescription>Inicie sessão na sua conta</CardDescription>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-sidebar p-4">
+      {/* Fundo da marca: azul-tinta com uma grelha ténue e um brilho atrás do cartão. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.05] [background-image:linear-gradient(hsl(var(--sidebar-foreground))_1px,transparent_1px),linear-gradient(90deg,hsl(var(--sidebar-foreground))_1px,transparent_1px)] [background-size:44px_44px]" />
+      <div aria-hidden className="pointer-events-none absolute left-1/2 top-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-sidebar-primary/20 blur-[120px]" />
+      <div className="relative w-full max-w-md">
+      <Marca escuro className="mb-8" />
+      <Card className="w-full rounded-2xl shadow-elevada">
+        <CardHeader>
+          <CardTitle className="text-xl">Iniciar sessão</CardTitle>
+          <CardDescription>Entre com o email e a palavra-passe da sua conta.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -90,6 +92,7 @@ export default function Auth() {
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

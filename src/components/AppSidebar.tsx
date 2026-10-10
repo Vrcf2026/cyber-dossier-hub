@@ -17,6 +17,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import { Marca } from "@/components/Marca";
 
 const staffItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard, end: true },
@@ -48,9 +49,9 @@ export const AppSidebar = forwardRef<HTMLDivElement>((_, ref) => {
     <Sidebar ref={ref} collapsible="icon">
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-primary font-bold text-lg px-4 py-3">
-            {!collapsed && "🛡️ CyberDossier"}
-          </SidebarGroupLabel>
+          <div className={collapsed ? "flex justify-center py-3" : "px-2 pb-5 pt-3"}>
+            <Marca escuro compacto={collapsed} />
+          </div>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
@@ -59,10 +60,10 @@ export const AppSidebar = forwardRef<HTMLDivElement>((_, ref) => {
                     <NavLink
                       to={item.url}
                       end={"end" in item ? (item as any).end : undefined}
-                      className="hover:bg-sidebar-accent/50"
-                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      className="relative rounded-lg text-sidebar-foreground/75 transition-all duration-200 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground before:absolute before:left-0 before:top-1/2 before:h-0 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-sidebar-primary before:transition-all before:duration-200"
+                      activeClassName="bg-sidebar-accent font-medium !text-sidebar-accent-foreground [&_svg]:text-sidebar-primary before:h-5"
                     >
-                      <item.icon className="mr-2 h-4 w-4" />
+                      <item.icon className="mr-2 h-4 w-4 shrink-0 transition-colors duration-200" />
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
@@ -72,17 +73,20 @@ export const AppSidebar = forwardRef<HTMLDivElement>((_, ref) => {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-2">
+      <SidebarFooter className="border-t border-sidebar-border p-2">
         {!collapsed && (
-          <p className="text-xs text-sidebar-foreground/60 px-2 mb-1 truncate">
-            {user?.email}
-          </p>
+          <div className="mb-1 flex items-center gap-2.5 px-2 py-1.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sidebar-primary/15 text-xs font-semibold text-sidebar-primary ring-1 ring-sidebar-primary/30">
+              {(user?.email ?? "?").charAt(0).toUpperCase()}
+            </div>
+            <p className="min-w-0 truncate text-xs text-sidebar-foreground/70">{user?.email}</p>
+          </div>
         )}
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+          className="w-full justify-start rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
         >
           {theme === "dark" ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
           {!collapsed && (theme === "dark" ? "Tema claro" : "Tema escuro")}
@@ -91,7 +95,7 @@ export const AppSidebar = forwardRef<HTMLDivElement>((_, ref) => {
           variant="ghost"
           size="sm"
           onClick={signOut}
-          className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+          className="w-full justify-start rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"
         >
           <LogOut className="h-4 w-4 mr-2" />
           {!collapsed && "Terminar sessão"}

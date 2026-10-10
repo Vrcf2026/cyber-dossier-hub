@@ -67,7 +67,7 @@ export default function Mfa() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <ShieldCheck className="h-8 w-8 text-accent" />
+            <ShieldCheck className="h-8 w-8 text-primary" />
             <CardTitle className="text-xl font-bold text-primary">Verificação em dois passos</CardTitle>
           </div>
           <CardDescription>
