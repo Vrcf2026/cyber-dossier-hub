@@ -82,8 +82,10 @@ Deno.serve(async (req: Request) => {
           email,
           password,
           email_confirm: true,
-          user_metadata: {
-            full_name: full_name ?? email,
+          user_metadata: { full_name: full_name ?? email },
+          // Papel, cliente e aprovação em app_metadata: só o servidor o escreve
+          // (user_metadata pode ser preenchido por quem se regista sozinho).
+          app_metadata: {
             role,
             client_id: client_id ?? null,
             created_by_admin: true,
